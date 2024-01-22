@@ -73,31 +73,55 @@ def tinyMazeSearch(problem):
     return  [s, s, w, s, w, w, s, w]
 
 def depthFirstSearch(problem):
-    """
-    Search the deepest nodes in the search tree first.
-
-    Your search algorithm needs to return a list of actions that reaches the
-    goal. Make sure to implement a graph search algorithm.
-
-    To get started, you might want to try some of these simple commands to
-    understand the search problem that is being passed in:
-
-    print("Start:", problem.getStartState())
-    print("Is the start a goal?", problem.isGoalState(problem.getStartState()))
-    print("Start's successors:", problem.getSuccessors(problem.getStartState()))
-    """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    exploredStates = set()  
+    finalPath=[]                         
+    currentState = problem.getStartState()
+    masterStack = util.Stack() 
+    backtrackStack = util.Stack()         
+    while not problem.isGoalState(currentState):  #main control loop
+        exploredStates.add(currentState)  #book-keeping
+        for joiningState, transition, _ in problem.getSuccessors(currentState): #get joining states
+            if joiningState not in exploredStates:
+                    masterStack.push(joiningState)
+                    branchPath = finalPath + [transition]
+                    backtrackStack.push(branchPath)
+        currentState = masterStack.pop()
+        finalPath = backtrackStack.pop()
+    return finalPath
 
 def breadthFirstSearch(problem):
-    """Search the shallowest nodes in the search tree first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    exploredStates = set()  
+    finalPath=[]                         
+    currentState = problem.getStartState()
+    masterStack = util.Queue() 
+    backtrackStack = util.Queue()         
+    while not problem.isGoalState(currentState):  #main control loop
+        exploredStates.add(currentState)  #book-keeping
+        for joiningState, transition, _ in problem.getSuccessors(currentState): #get joining states
+            if joiningState not in exploredStates:
+                    masterStack.push(joiningState)
+                    branchPath = finalPath + [transition]
+                    backtrackStack.push(branchPath)
+        currentState = masterStack.pop()
+        finalPath = backtrackStack.pop()
+    return finalPath
 
 def uniformCostSearch(problem):
-    """Search the node of least total cost first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    exploredStates = set()  
+    finalPath=[]                         
+    currentState = problem.getStartState()
+    masterStack = util.PriorityQueue() 
+    backtrackStack = util.PriorityQueue()         
+    while not problem.isGoalState(currentState):  #main control loop
+        exploredStates.add(currentState)  #book-keeping
+        for joiningState, transition, cost in problem.getSuccessors(currentState): #get joining states
+            if joiningState not in exploredStates:
+                    masterStack.push(joiningState, cost)
+                    branchPath = finalPath + [transition]
+                    backtrackStack.push(branchPath, cost)
+        currentState = masterStack.pop()
+        finalPath = backtrackStack.pop()
+    return finalPath
 
 def nullHeuristic(state, problem=None):
     """
@@ -107,9 +131,21 @@ def nullHeuristic(state, problem=None):
     return 0
 
 def aStarSearch(problem, heuristic=nullHeuristic):
-    """Search the node that has the lowest combined cost and heuristic first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    exploredStates = set()  
+    finalPath=[]                         
+    currentState = problem.getStartState()
+    masterStack = util.PriorityQueue() 
+    backtrackStack = util.PriorityQueue()         
+    while not problem.isGoalState(currentState):  #main control loop
+        exploredStates.add(currentState)  #book-keeping
+        for joiningState, transition, cost in problem.getSuccessors(currentState): #get joining states
+            if joiningState not in exploredStates:
+                    masterStack.push(joiningState, cost + heuristic(joiningState, problem))
+                    branchPath = finalPath + [transition]
+                    backtrackStack.push(branchPath, cost + heuristic(joiningState, problem))
+        currentState = masterStack.pop()
+        finalPath = backtrackStack.pop()
+    return finalPath
 
 
 # Abbreviations
