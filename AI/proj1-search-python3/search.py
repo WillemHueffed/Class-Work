@@ -96,9 +96,9 @@ def breadthFirstSearch(problem):
     masterStack = util.Queue() 
     backtrackStack = util.Queue()         
     while not problem.isGoalState(currentState):  #main control loop
-        exploredStates.add(currentState)  #book-keeping
-        for joiningState, transition, _ in problem.getSuccessors(currentState): #get joining states
-            if joiningState not in exploredStates:
+        if currentState not in exploredStates:
+            exploredStates.add(currentState)  #book-keeping
+            for joiningState, transition, _ in problem.getSuccessors(currentState): #get joining states
                     masterStack.push(joiningState)
                     branchPath = finalPath + [transition]
                     backtrackStack.push(branchPath)
@@ -113,12 +113,12 @@ def uniformCostSearch(problem):
     masterStack = util.PriorityQueue() 
     backtrackStack = util.PriorityQueue()         
     while not problem.isGoalState(currentState):  #main control loop
-        exploredStates.add(currentState)  #book-keeping
-        for joiningState, transition, cost in problem.getSuccessors(currentState): #get joining states
-            if joiningState not in exploredStates:
-                    masterStack.push(joiningState, cost)
+        if currentState not in exploredStates:
+            exploredStates.add(currentState)  #book-keeping
+            for joiningState, transition, cost in problem.getSuccessors(currentState): #get joining states
                     branchPath = finalPath + [transition]
-                    backtrackStack.push(branchPath, cost)
+                    masterStack.push(joiningState, problem.getCostOfActions(branchPath))
+                    backtrackStack.push(branchPath, problem.getCostOfActions(branchPath))
         currentState = masterStack.pop()
         finalPath = backtrackStack.pop()
     return finalPath
