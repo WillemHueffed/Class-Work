@@ -288,6 +288,8 @@ class CornersProblem(search.SearchProblem):
         # Please add any code here which you would like to use
         # in initializing the problem
         "*** YOUR CODE HERE ***"
+        self.visitedCorners = set()
+        
 
     def getStartState(self):
         """
@@ -295,6 +297,10 @@ class CornersProblem(search.SearchProblem):
         space)
         """
         "*** YOUR CODE HERE ***"
+        #[((x,y), direction, cost)]
+        print("Printing start state:")
+        print((self.startingPosition, []))
+        return(self.startingPosition, [])
         util.raiseNotDefined()
 
     def isGoalState(self, state):
@@ -302,8 +308,11 @@ class CornersProblem(search.SearchProblem):
         Returns whether this search state is a goal state of the problem.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
-
+        if state in self.corners and state not in self.visitedCorners:
+            self.visitedCorners.add(state)
+            return True
+        return False
+    
     def getSuccessors(self, state):
         """
         Returns successor states, the actions they require, and a cost of 1.
@@ -315,6 +324,8 @@ class CornersProblem(search.SearchProblem):
             is the incremental cost of expanding to that successor
         """
 
+        print("State: {}".format(state))
+
         successors = []
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
             # Add a successor state to the successor list if the action is legal
@@ -325,6 +336,12 @@ class CornersProblem(search.SearchProblem):
             #   hitsWall = self.walls[nextx][nexty]
 
             "*** YOUR CODE HERE ***"
+            x,y = state[0]
+            dx,dy = Actions.directionToVector(action)
+            nextX,nextY = int(x+dx), int(y+dy)
+            if self.walls[nextX][nextY]:
+                continue
+            successors.append(((nextX, nextY), action, self.getCostOfActions(action)))
 
         self._expanded += 1 # DO NOT CHANGE
         return successors
