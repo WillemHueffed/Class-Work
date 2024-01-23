@@ -90,14 +90,15 @@ def depthFirstSearch(problem):
     return finalPath
 
 def breadthFirstSearch(problem):
-    exploredStates = set()  
+    #exploredStates = set() #can't hash the tuples for problem 5 -> python is dumb 
+    exploredStates = []
     finalPath=[]                         
     currentState = problem.getStartState()
     masterStack = util.Queue() 
     backtrackStack = util.Queue()         
     while not problem.isGoalState(currentState):  #main control loop
         if currentState not in exploredStates:
-            exploredStates.add(currentState)  #book-keeping
+            exploredStates.append(currentState)  #book-keeping
             for joiningState, transition, _ in problem.getSuccessors(currentState): #get joining states
                     masterStack.push(joiningState)
                     branchPath = finalPath + [transition]

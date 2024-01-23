@@ -288,61 +288,31 @@ class CornersProblem(search.SearchProblem):
         # Please add any code here which you would like to use
         # in initializing the problem
         "*** YOUR CODE HERE ***"
-        self.visitedCorners = set()
-        
 
     def getStartState(self):
-        """
-        Returns the start state (in your state space, not the full Pacman state
-        space)
-        """
-        "*** YOUR CODE HERE ***"
-        #[((x,y), direction, cost)]
-        print("Printing start state:")
-        print((self.startingPosition, []))
-        return(self.startingPosition, [])
-        util.raiseNotDefined()
+        '''Pacman needs to be able to re-traverse old (x,y) positions. If we don't encode how many corners we've reached as part of the state
+        then Pacman will get stuck in a corner and just hang indefinetly. This is because BFS only expands the same state once. Therefore in order to
+        move back to old (x,y) positions we need to include a new parameter as part of our definition of state'''
+        return (self.startingPosition, ()) #[0] encodes x,y | [1] encodes the corners we've seen/visited 
 
     def isGoalState(self, state):
-        """
-        Returns whether this search state is a goal state of the problem.
-        """
-        "*** YOUR CODE HERE ***"
-        if state in self.corners and state not in self.visitedCorners:
-            self.visitedCorners.add(state)
-            return True
-        return False
+        x, y = state[0]
+        if (x,y) in self.corners and (x,y) not in state[1]:
+            state[1].append((x,y))
+        return len(state[1]) == 4
     
     def getSuccessors(self, state):
-        """
-        Returns successor states, the actions they require, and a cost of 1.
-
-         As noted in search.py:
-            For a given state, this should return a list of triples, (successor,
-            action, stepCost), where 'successor' is a successor to the current
-            state, 'action' is the action required to get there, and 'stepCost'
-            is the incremental cost of expanding to that successor
-        """
-
-        print("State: {}".format(state))
-
         successors = []
+        x, y = state
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
-            # Add a successor state to the successor list if the action is legal
-            # Here's a code snippet for figuring out whether a new position hits a wall:
-            #   x,y = currentPosition
-            #   dx, dy = Actions.directionToVector(action)
-            #   nextx, nexty = int(x + dx), int(y + dy)
-            #   hitsWall = self.walls[nextx][nexty]
-
-            "*** YOUR CODE HERE ***"
-            x,y = state[0]
-            dx,dy = Actions.directionToVector(action)
-            nextX,nextY = int(x+dx), int(y+dy)
-            if self.walls[nextX][nextY]:
-                continue
-            successors.append(((nextX, nextY), action, self.getCostOfActions(action)))
-
+            x, y = state[0]
+            dx, dy = Actions.directionToVector(action)
+            nextX, nextY = int(x + dx), int(y + dy)
+            if not self.walls[nextX][nextY]:
+                visitedCorners = list(state[1]) #do this inside the loop so cells next to corner cell don't think they're also corners
+                if (nextX, nextY) in self.corners and (nextX, nextY) not in state[1]:
+                    visitedCorners.append((nextX, nextY))
+                successors.append((((nextX, nextY), visitedCorners), action, 1))
         self._expanded += 1 # DO NOT CHANGE
         return successors
 
