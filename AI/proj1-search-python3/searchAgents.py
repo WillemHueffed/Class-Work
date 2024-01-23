@@ -288,6 +288,7 @@ class CornersProblem(search.SearchProblem):
         # Please add any code here which you would like to use
         # in initializing the problem
         "*** YOUR CODE HERE ***"
+        self.startingGameState = startingGameState #Needed to call maze distance function for Q6. Don't need this for Q5
 
     def getStartState(self):
         '''Pacman needs to be able to re-traverse old (x,y) positions. If we don't encode how many corners we've reached as part of the state
@@ -347,7 +348,16 @@ def cornersHeuristic(state, problem):
     walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
 
     "*** YOUR CODE HERE ***"
-    return 0 # Default to trivial solution
+    distances = []
+    for corner in corners:
+        if corner not in state[1]:
+            #Why do they make it so difficult to call this function the class consturctor for the problem should automatically store startingGameState...
+            distances.append(mazeDistance(state[0], corner, problem.startingGameState))
+    #Weird bug happens where max(distances) errors out because there are no elements in distances. Assuming this is an edge case where we've explored 
+    #call corners but there is some trailing call to the heuristic which then passes over all costs
+    if not len(distances): 
+        return 0
+    return max(distances)
 
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
