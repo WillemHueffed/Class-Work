@@ -137,12 +137,12 @@ def aStarSearch(problem, heuristic=nullHeuristic):
     masterStack = util.PriorityQueue() 
     backtrackStack = util.PriorityQueue()         
     while not problem.isGoalState(currentState):  #main control loop
-        exploredStates.add(currentState)  #book-keeping
-        for joiningState, transition, cost in problem.getSuccessors(currentState): #get joining states
-            if joiningState not in exploredStates:
-                    masterStack.push(joiningState, cost + heuristic(joiningState, problem))
+        if currentState not in exploredStates:
+            exploredStates.add(currentState)  #book-keeping
+            for joiningState, transition, cost in problem.getSuccessors(currentState): #get joining states
                     branchPath = finalPath + [transition]
-                    backtrackStack.push(branchPath, cost + heuristic(joiningState, problem))
+                    masterStack.push(joiningState, problem.getCostOfActions(branchPath) + heuristic(joiningState, problem))
+                    backtrackStack.push(branchPath, problem.getCostOfActions(branchPath) + heuristic(joiningState, problem))
         currentState = masterStack.pop()
         finalPath = backtrackStack.pop()
     return finalPath
