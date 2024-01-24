@@ -304,7 +304,6 @@ class CornersProblem(search.SearchProblem):
     
     def getSuccessors(self, state):
         successors = []
-        x, y = state
         for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
             x, y = state[0]
             dx, dy = Actions.directionToVector(action)
