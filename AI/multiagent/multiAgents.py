@@ -151,33 +151,38 @@ class MinimaxAgent(MultiAgentSearchAgent):
         Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        return self.minimax(gameState, self.depth, 0)
+        return self.minimax(gameState, self.depth, 0)[1]
         util.raiseNotDefined()
 
 #Need to extract optimal action instead of just the value. How does the computation work then
 #instead of returning the computing the value in depth n-1 return the action and compute at depth n
     def minimax(self, gameState, depth, agentIndex):
         if depth == 0 or gameState.isWin() or gameState.isLose():
-            return self.evaluationFunction(gameState)
+            return (self.evaluationFunction(gameState), None)
         if agentIndex == 0:
-            tups = []
             value = float('-inf')
+            bestAction = None
             legalActions = gameState.getLegalActions(agentIndex)
             for action in legalActions:
                 successor = gameState.generateSuccessor(agentIndex, action)
-                value = max(value, self.minimax(successor, depth, agentIndex+1))
-                tups.append((value, action))
-            return value
+                minVal, minAction = self.minimax(successor,depth,agentIndex+1)
+                if minVal > value:
+                    value = minVal 
+                    bestAction = action
+            return (minVal, bestAction) 
         if agentIndex > 0:
             value = float('inf')
             legalActions = gameState.getLegalActions(agentIndex)
-            if agentIndex == gameState.getNumAgents()-1:
-                agentIndex = 0
-                depth -= 1
             for action in legalActions:
                 successor = gameState.generateSuccessor(agentIndex, action)
-                value = min(value, self.minimax(successor, depth, agentIndex))    
-            return value
+                if agentIndex == gameState.getNumAgents()-1:
+                    maxVal, maxAction = self.minimax(successor, depth-1, 0)
+                else:
+                    maxVal, maxAction = self.minimax(successor, depth, agentIndex+1)
+                if maxVal < value:
+                    value = maxVal
+                    bestAction = action
+            return (value, bestAction) 
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
