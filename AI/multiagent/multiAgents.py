@@ -159,7 +159,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
     def minimax(self, gameState, depth, agentIndex):
         if depth == 0 or gameState.isWin() or gameState.isLose():
             return (self.evaluationFunction(gameState), None)
-        if agentIndex == 0:
+        if agentIndex == 0: #maximizer (pacman)
             value = float('-inf')
             bestAction = None
             legalActions = gameState.getLegalActions(agentIndex)
@@ -169,8 +169,8 @@ class MinimaxAgent(MultiAgentSearchAgent):
                 if minVal > value:
                     value = minVal 
                     bestAction = action
-            return (minVal, bestAction) 
-        if agentIndex > 0:
+            return (value, bestAction) 
+        if agentIndex > 0: #minimizer (ghost)
             value = float('inf')
             legalActions = gameState.getLegalActions(agentIndex)
             for action in legalActions:
