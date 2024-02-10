@@ -247,7 +247,6 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return self.expectimax(gameState, self.depth, 0)[1]
     
     def expectimax(self, gameState, depth, agentIndex):
-        import random
         if depth == 0 or gameState.isWin() or gameState.isLose():
             return (self.evaluationFunction(gameState), None)
         if agentIndex == 0: #maximizer (pacman)
@@ -279,10 +278,28 @@ def betterEvaluationFunction(currentGameState):
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
 
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: The evaluation function penalizing pacman for having remaining pellets and capsules. Capsules are weighted more significantly
+    because eating a ghost is a major boost to the score. Addtionally Pacman is penalized for being near non-scared ghosts but is heavily incentivized
+    to be close to scared ghosts. The score bonus from eating a ghost is reflected by the initialization of score to the current game state score which
+    will be boosted by eating the ghost.
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    #score should increase for fewer food pellets
+    #score should increase for fewer powerups
+    #score should drastically increase for eating a ghost
+    #score should decrease for getting close to a ghost
+    pos = currentGameState.getPacmanPosition()
+    score = currentGameState.getScore()
+    score -= 20 * currentGameState.getNumFood()
+    score -= 100 * len(currentGameState.getCapsules())
+    for ghostState in currentGameState.getGhostStates():
+        distance = manhattanDistance(pos, ghostState.getPosition())
+        if ghostState.scaredTimer:
+            score += 150*(1/(distance+1))
+        else:
+            score -= 10*(1/(distance+1))
+    return score
 
+    
 # Abbreviation
 better = betterEvaluationFunction
