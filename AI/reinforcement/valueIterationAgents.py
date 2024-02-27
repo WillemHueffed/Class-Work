@@ -64,7 +64,7 @@ class ValueIterationAgent(ValueEstimationAgent):
         "*** YOUR CODE HERE ***"
         mdp = self.mdp
         iterations = self.iterations
-        while iterations != 0:
+        while iterations:
             iteration_values = util.Counter()
             iterations -= 1
             for state in mdp.getStates():
