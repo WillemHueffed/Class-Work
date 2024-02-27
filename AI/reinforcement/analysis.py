@@ -20,8 +20,9 @@
 # value iteration.
 
 def question2():
+    #Original [0.9, 0.2]
     answerDiscount = 0.9
-    answerNoise = 0.2
+    answerNoise = 0.0125
     return answerDiscount, answerNoise
 
 def question3a():
