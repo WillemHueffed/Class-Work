@@ -62,8 +62,23 @@ class ValueIterationAgent(ValueEstimationAgent):
     def runValueIteration(self):
         # Write value iteration code here
         "*** YOUR CODE HERE ***"
-
-
+        mdp = self.mdp
+        iterations = self.iterations
+        while iterations != 0:
+            iteration_values = util.Counter()
+            iterations -= 1
+            for state in mdp.getStates():
+                if mdp.isTerminal(state):
+                   iteration_values[state] = 0
+                else:
+                    possible_actions = mdp.getPossibleActions(state)
+                    qStar = float('-inf')
+                    for action in possible_actions:
+                        q = self.computeQValueFromValues(state, action)
+                        qStar = max(qStar, q)
+                    iteration_values[state] = qStar
+            self.values = iteration_values       
+                  
     def getValue(self, state):
         """
           Return the value of the state (computed in __init__).
@@ -77,8 +92,19 @@ class ValueIterationAgent(ValueEstimationAgent):
           value function stored in self.values.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # Use bellman ford equation
+        mdp = self.mdp
+        gamma = self.discount
+        values = self.values
+        Q = 0
+         
+        for sPrime, prob in mdp.getTransitionStatesAndProbs(state, action):
+            R = mdp.getReward(state, action, sPrime) 
+            futureR = values[sPrime]
+            Q += prob * (R + (gamma * futureR))
 
+        return Q
+            
     def computeActionFromValues(self, state):
         """
           The policy is the best action in the given state
@@ -88,8 +114,14 @@ class ValueIterationAgent(ValueEstimationAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return None.
         """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        "*** YOUR CODE HERE ***"         
+        # Policy should maximize sum of rewards for any given state
+        mdp = self.mdp
+        possible_actions = mdp.getPossibleActions(state)
+        action_reward = util.Counter()
+        for action in possible_actions:
+            action_reward[action] = self.computeQValueFromValues(state, action)
+        return action_reward.argMax()
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
