@@ -170,7 +170,6 @@ class AsynchronousValueIterationAgent(ValueIterationAgent):
 
         while iterations:
             iterations -= 1
-            #for state in mdp.getStates():
             curr_state = states[index]
             index = (index + 1) % len(states)
             if mdp.isTerminal(curr_state):
