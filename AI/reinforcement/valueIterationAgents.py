@@ -202,4 +202,52 @@ class PrioritizedSweepingValueIterationAgent(AsynchronousValueIterationAgent):
 
     def runValueIteration(self):
         "*** YOUR CODE HERE ***"
+        mdp = self.mdp
+        theta = self.theta
+        iterations = self.iterations
+        pQ = util.PriorityQueue()
+        values = self.values
+        predecessors = {}
+        for state in mdp.getStates():
+            predecessors[state] = set()
+        for pred in mdp.getStates():
+            for action in mdp.getPossibleActions(pred):
+                for succ, prob in mdp.getTransitionStatesAndProbs(pred, action):
+                    predecessors[succ].add(pred)
+        ''' 
+        for k in predecessors.keys():
+            print("state: {} : preds: {}".format(k, predecessors[k]))    
+        exit 
+        '''
+        for state in mdp.getStates():
+            if mdp.isTerminal(state):
+                continue
+            possible_actions = mdp.getPossibleActions(state)
+            qStar = float('-inf')
+            for action in possible_actions:
+                q = self.computeQValueFromValues(state, action)
+                qStar = max(qStar, q)
+            diff = -1 * abs(values[state] - qStar)
+            state_q = (state, qStar)
+            pQ.update(state_q, diff)
 
+        while iterations:
+            iterations -= 1
+            if pQ.isEmpty():
+                iterations = 0
+                continue
+            state, qStar = pQ.pop()
+            if not mdp.isTerminal(state):
+                values[state] = qStar
+            for pred in predecessors[state]:
+                #this may be where the error is
+                possible_actions = mdp.getPossibleActions(pred)
+                qStar = float('-inf')
+                for pred_action in possible_actions:
+                    q = self.computeQValueFromValues(pred, pred_action)
+                    qStar = max(q, qStar)
+                diff = abs(values[pred] - qStar)                
+                pred_q = (pred, qStar)
+                if diff > theta:
+                    diff *= -1
+                    pQ.update(pred_q, diff)
