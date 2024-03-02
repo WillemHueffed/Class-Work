@@ -213,8 +213,6 @@ class ApproximateQAgent(PacmanQAgent):
         weights = self.weights
         features = self.featExtractor.getFeatures(state, action)
         for feature in features:
-          #print(feature)
-          #print(weights[feature])
           q += features[feature] * weights[feature]
         return q
 

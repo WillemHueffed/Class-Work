@@ -92,7 +92,6 @@ class ValueIterationAgent(ValueEstimationAgent):
           value function stored in self.values.
         """
         "*** YOUR CODE HERE ***"
-        # Use bellman ford equation
         mdp = self.mdp
         gamma = self.discount
         values = self.values
@@ -115,7 +114,6 @@ class ValueIterationAgent(ValueEstimationAgent):
           terminal state, you should return None.
         """
         "*** YOUR CODE HERE ***"         
-        # Policy should maximize sum of rewards for any given state
         mdp = self.mdp
         possible_actions = mdp.getPossibleActions(state)
         action_reward = util.Counter()
