@@ -1,0 +1,2 @@
+curl -X PUT -d "bio=some other bio" localhost:3000/authors/John%20Doe
+curl -X POST -d "full_name=John Doe" -d "bio=Some bio" -d "bday=1990-01-01" -d "p_genre=Fiction" localhost:3000/authors
