@@ -19,6 +19,7 @@
   "devDependencies": {
     "@jest/globals": "^29.7.0",
     "@types/cookie-parser": "^1.4.7",
+    "@types/debug": "^4.1.12",
     "@types/jest": "^29.5.12",
     "@types/morgan": "^1.9.9",
     "@types/supertest": "^6.0.2",
