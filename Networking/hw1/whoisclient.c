@@ -19,8 +19,7 @@
 void setup(int *, char *);
 void *get_in_addr(struct sockaddr *);
 void parse_command_line(int argc, char **argv, char **hostname, char **port,
-                        char **command, char ***args);
-void test(int argc, char **argv, char ***args);
+                        char ***args);
 
 int main(int argc, char **argv) {
   char *hostname = NULL;
@@ -28,22 +27,16 @@ int main(int argc, char **argv) {
   char *command = NULL;
   char **args = NULL;
 
-  test(argc, argv, &args);
-  printf("back in main\n");
-  // parse_command_line(argc, argv, &hostname, &port, &command, &args);
+  parse_command_line(argc, argv, &hostname, &port, &args);
 
-  // printf("main - hostname: %s\n", hostname);
-  // printf("main - port: %s\n", port);
-  // printf("args[0] - %s\n", args[0]);
+  // printf("hostname: %s\n", hostname);
+  // printf("port: %s\n", port);
 
-  return 0;
+  // for (int i = 0; args[i] != NULL; i++) {
+  //  printf("arg: %s\n", args[i]);
+  //}
 
-  printf("line 30");
-  for (char **p = args; p != NULL; p++) {
-    printf("args registered as: %s", *p);
-  }
-
-  return 0;
+  ///
 
   int sockfd;
   int numbytes;
@@ -63,76 +56,34 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-void test(int argc, char **argv, char ***args) {
+void parse_command_line(int argc, char **argv, char **hostname, char **port,
+                        char ***args) {
+  // Catch insufficient args
   if (argc < 3) {
     printf("error not enough args\n");
     exit(1);
   }
-  *args = malloc(sizeof(char *) *
-                 argc); // Allocate memory for an array of char pointers
+
+  // allocate mem
+  *args = malloc((sizeof(char *) * argc));
   if (*args == NULL) {
     printf("Memory allocation failed\n");
     exit(1);
   }
-  for (int i = 0; i < argc; i++) {
-    (*args)[i] = malloc(strlen(argv[i]) + 1); // Allocate memory for each string
-    if ((*args)[i] == NULL) {
+
+  // grab port:host pair
+  *hostname = strtok(argv[1], ":");
+  *port = strtok(NULL, ":");
+
+  // extract args
+  int ac = 0;
+  for (int i = 2; i < argc; i++) {
+    (*args)[ac] = malloc(strlen(argv[i]) + 1);
+    if ((*args)[ac] == NULL) {
       printf("Memory allocation failed\n");
       exit(1);
     }
-    printf("i = %d | argv[%d] = %s\n", i, i, argv[i]);
-    strcpy((*args)[i], argv[i]); // Copy string from argv to args
-  }
-}
-
-void parse_command_line(int argc, char **argv, char **hostname, char **port,
-                        char **command, char ***args) {
-  if (argc < 3) {
-    printf("not enough args\n");
-    exit(0);
-  }
-  *args = malloc(sizeof(char *) * (argc - 2)); // should be argc-2
-
-  for (int i = 1; i < argc + 1; i++) {
-    printf("i = %d\n", i);
-    // hostname:server_port
-    if (i == 1) {
-      *hostname = strtok(argv[i], ":");
-      *port = strtok(NULL, ":");
-      printf("in parse: %s --- %s\n", *hostname, *port);
-    }
-    // command
-    else if (i == 2) {
-      printf("in i==2\n");
-      *command = malloc(strlen(argv[i]) + 1);
-      if (*command == NULL) {
-        printf("mem alloc failed\n");
-      }
-      printf("malloc'd\n");
-      strcpy(*command, argv[i]);
-      // printf("cpy succ\n");
-    }
-    /*
-      else if (i == argc) {
-      printf("in i == argc\n");
-      args[i] = NULL;
-      break;
-    }
-    */
-    else {
-      printf("in i==3\n");
-      // printf("%s\n", *args[0]);
-      //(*args[0] = malloc(strlen(argv[i - 1])));
-      //(*args)[i - 3] = malloc(strlen(argv[i - 2]));
-      printf("succ\n");
-      if ((*args)[i - 3] == NULL) {
-        printf("*args i - 3\n");
-      }
-      printf("i is: %d\n", i);
-      strcpy((*args)[i - 3], argv[i]);
-      printf("copied %s to args[%d]\n", argv[i], i - 3);
-      // printf("arg: %s", args[i - 3]);
-    }
+    strcpy((*args)[ac++], argv[i]);
   }
 }
 
