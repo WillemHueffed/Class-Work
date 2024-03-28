@@ -1,7 +1,8 @@
 # Compiler
 CC = gcc
 # Compiler flags
-CFLAGS = -Wall -Wextra -g
+#CFLAGS = -Wall -Wextra -g
+CFLAGS = -g
 
 # Source files for the server and client
 SERVER_SRCS = whoisserver.c
