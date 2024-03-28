@@ -13,19 +13,19 @@
 
 #define PORT "3490"
 #define MAXDATASIZE 100
+// 28 flags for whois * 2 (each arg gets a param) = 56
+#define MAXARGS 56
 
 void setup(int *, char *);
 void *get_in_addr(struct sockaddr *);
-void parse_command_line(int argc, char **argv, char *hostname, char *port,
-                        char *command, char **options, char **arg_list);
+void parse_command_line(int, char **, char *, char *, char *, char **);
 
 int main(int argc, char **argv) {
   char *hostname = NULL;
   char *port = NULL;
   char *command = NULL;
-  char **options = NULL;
-  char **arg_list = NULL;
-  parse_command_line(argc, argv, hostname, port, command, options, arg_list);
+  char **args = NULL;
+  parse_command_line(argc, argv, hostname, port, command, args);
 
   int sockfd;
   int numbytes;
@@ -46,12 +46,22 @@ int main(int argc, char **argv) {
 }
 
 void parse_command_line(int argc, char **argv, char *hostname, char *port,
-                        char *command, char **options, char **arg_list) {
+                        char *command, char **args) {
+  printf("here 50\n");
+  args = NULL;
   if (argc < 2) {
     printf("not enough args\n");
-    exit(1);
+    exit(0);
   }
-  for (int i = 0; i < argc; i++) {
+  if (argc > 2) { // this causes the fucking segfault
+    // else {
+    printf("woah");
+    args = malloc(sizeof(char *) * (argc - 2));
+    printf("1woah");
+    exit(0);
+  }
+  printf("here");
+  for (int i = 0; i <= argc; i++) {
     // hostname:server_port
     if (i == 1) {
       hostname = strtok(argv[i], ":");
@@ -60,16 +70,16 @@ void parse_command_line(int argc, char **argv, char *hostname, char *port,
     }
     // command
     if (i == 2) {
+      strcpy(command, argv[i]);
+      printf("got the command as: %s\n", command);
     }
-
     if (i > 2) {
+      strcpy(args[i - 3], argv[i - 2]);
+      printf("arg: %s", args[i - 3]);
     }
-
-    port = NULL;
-    command = NULL;
-    options = NULL;
-    arg_list = NULL;
-    arg_list = NULL;
+    if (i == argc) {
+      args[i] = NULL;
+    }
   }
   exit(0);
 }
