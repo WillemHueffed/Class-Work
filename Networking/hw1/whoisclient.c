@@ -68,11 +68,20 @@ void test(int argc, char **argv, char ***args) {
     printf("error not enough args\n");
     exit(1);
   }
-  *args = malloc(sizeof(char *) * (argc));
+  *args = malloc(sizeof(char *) *
+                 argc); // Allocate memory for an array of char pointers
+  if (*args == NULL) {
+    printf("Memory allocation failed\n");
+    exit(1);
+  }
   for (int i = 0; i < argc; i++) {
+    (*args)[i] = malloc(strlen(argv[i]) + 1); // Allocate memory for each string
+    if ((*args)[i] == NULL) {
+      printf("Memory allocation failed\n");
+      exit(1);
+    }
     printf("i = %d | argv[%d] = %s\n", i, i, argv[i]);
-
-    strcpy(*args[i], argv[i]);
+    strcpy((*args)[i], argv[i]); // Copy string from argv to args
   }
 }
 
