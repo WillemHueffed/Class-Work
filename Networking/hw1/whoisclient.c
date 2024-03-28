@@ -18,14 +18,32 @@
 
 void setup(int *, char *);
 void *get_in_addr(struct sockaddr *);
-void parse_command_line(int, char **, char *, char *, char *, char **);
+void parse_command_line(int argc, char **argv, char **hostname, char **port,
+                        char **command, char ***args);
+void test(int argc, char **argv, char ***args);
 
 int main(int argc, char **argv) {
   char *hostname = NULL;
   char *port = NULL;
   char *command = NULL;
   char **args = NULL;
-  parse_command_line(argc, argv, hostname, port, command, args);
+
+  test(argc, argv, &args);
+  printf("back in main\n");
+  // parse_command_line(argc, argv, &hostname, &port, &command, &args);
+
+  // printf("main - hostname: %s\n", hostname);
+  // printf("main - port: %s\n", port);
+  // printf("args[0] - %s\n", args[0]);
+
+  return 0;
+
+  printf("line 30");
+  for (char **p = args; p != NULL; p++) {
+    printf("args registered as: %s", *p);
+  }
+
+  return 0;
 
   int sockfd;
   int numbytes;
@@ -45,43 +63,68 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-void parse_command_line(int argc, char **argv, char *hostname, char *port,
-                        char *command, char **args) {
-  printf("here 50\n");
-  args = NULL;
-  if (argc < 2) {
+void test(int argc, char **argv, char ***args) {
+  if (argc < 3) {
+    printf("error not enough args\n");
+    exit(1);
+  }
+  *args = malloc(sizeof(char *) * (argc));
+  for (int i = 0; i < argc; i++) {
+    printf("i = %d | argv[%d] = %s\n", i, i, argv[i]);
+
+    strcpy(*args[i], argv[i]);
+  }
+}
+
+void parse_command_line(int argc, char **argv, char **hostname, char **port,
+                        char **command, char ***args) {
+  if (argc < 3) {
     printf("not enough args\n");
     exit(0);
   }
-  if (argc > 2) { // this causes the fucking segfault
-    // else {
-    printf("woah");
-    args = malloc(sizeof(char *) * (argc - 2));
-    printf("1woah");
-    exit(0);
-  }
-  printf("here");
-  for (int i = 0; i <= argc; i++) {
+  *args = malloc(sizeof(char *) * (argc - 2)); // should be argc-2
+
+  for (int i = 1; i < argc + 1; i++) {
+    printf("i = %d\n", i);
     // hostname:server_port
     if (i == 1) {
-      hostname = strtok(argv[i], ":");
-      port = strtok(NULL, ":");
-      printf("%s --- %s", hostname, port);
+      *hostname = strtok(argv[i], ":");
+      *port = strtok(NULL, ":");
+      printf("in parse: %s --- %s\n", *hostname, *port);
     }
     // command
-    if (i == 2) {
-      strcpy(command, argv[i]);
-      printf("got the command as: %s\n", command);
+    else if (i == 2) {
+      printf("in i==2\n");
+      *command = malloc(strlen(argv[i]) + 1);
+      if (*command == NULL) {
+        printf("mem alloc failed\n");
+      }
+      printf("malloc'd\n");
+      strcpy(*command, argv[i]);
+      // printf("cpy succ\n");
     }
-    if (i > 2) {
-      strcpy(args[i - 3], argv[i - 2]);
-      printf("arg: %s", args[i - 3]);
-    }
-    if (i == argc) {
+    /*
+      else if (i == argc) {
+      printf("in i == argc\n");
       args[i] = NULL;
+      break;
+    }
+    */
+    else {
+      printf("in i==3\n");
+      // printf("%s\n", *args[0]);
+      //(*args[0] = malloc(strlen(argv[i - 1])));
+      //(*args)[i - 3] = malloc(strlen(argv[i - 2]));
+      printf("succ\n");
+      if ((*args)[i - 3] == NULL) {
+        printf("*args i - 3\n");
+      }
+      printf("i is: %d\n", i);
+      strcpy((*args)[i - 3], argv[i]);
+      printf("copied %s to args[%d]\n", argv[i], i - 3);
+      // printf("arg: %s", args[i - 3]);
     }
   }
-  exit(0);
 }
 
 void setup(int *sockfd, char *argv1) {
