@@ -21,13 +21,44 @@ void *get_in_addr(struct sockaddr *);
 void parse_command_line(int argc, char **argv, char **hostname, char **port,
                         char ***args);
 
+void format_msg(char **msg, char ***args) {
+  int total_length = 0;
+  int argc = 0;
+  for (int i = 0; (*args)[i] != NULL; i++) {
+    argc++;
+    printf("%s\n", (*args)[i]);
+    total_length += strlen((*args)[i]);
+  }
+  // printf("total length is: %d\n", total_length);
+
+  *msg = malloc(total_length + (argc)); // seperating each arg with a \n ->
+                                        // requires argc additional bytes
+  if (msg == NULL) {
+    printf("memory allocation failed");
+    exit(1);
+  }
+
+  strcpy(*msg, "");
+  for (int i = 0; (*args)[i] != NULL; i++) {
+    strcat(*msg, (*args)[i]);
+    if (i < argc - 1) {
+      strcat(*msg, "\n");
+    }
+  }
+}
+
 int main(int argc, char **argv) {
   char *hostname = NULL;
   char *port = NULL;
   char *command = NULL;
   char **args = NULL;
+  char *msg;
 
   parse_command_line(argc, argv, &hostname, &port, &args);
+
+  format_msg(&msg, &args);
+
+  printf("The formatted msg is:\n%s", msg);
 
   // printf("hostname: %s\n", hostname);
   // printf("port: %s\n", port);
@@ -48,10 +79,12 @@ int main(int argc, char **argv) {
     perror("recv");
     exit(1);
   }
-
   buf[numbytes] = '\0';
-
   printf("client: received '%s'\n", buf);
+
+  if (send(sockfd, msg, strlen(msg), 0) == -1)
+    perror("send");
+
   close(sockfd);
   return 0;
 }

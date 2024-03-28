@@ -12,8 +12,8 @@
 #include <unistd.h>
 
 #define PORT "3490"
-
 #define BACKLOG 10
+#define MAXDATASIZE 1000
 
 void sigchld_handler(int s);
 void *get_in_addr(struct sockaddr *sa);
@@ -53,6 +53,16 @@ void childProcess(int sockfd, int new_fd) {
   close(sockfd);
   if (send(new_fd, "Hello, world!", 13, 0) == -1)
     perror("send");
+
+  char buf[MAXDATASIZE];
+  int numbytes;
+
+  if ((numbytes = recv(new_fd, buf, MAXDATASIZE - 1, 0)) == -1) {
+    perror("recv");
+    exit(1);
+  }
+  buf[numbytes] = '\0';
+  printf("server: received '%s'\n", buf);
   close(new_fd);
   exit(0);
 }
