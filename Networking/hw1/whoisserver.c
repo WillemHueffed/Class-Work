@@ -11,11 +11,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define PORT "3500"
+#define PORT "3490"
 
 #define BACKLOG 10
 
 void sigchld_handler(int s) {
+  s = s; // Surpress werror about s
   int saved_errno = errno;
   while (waitpid(-1, NULL, WNOHANG) > 0)
     ;
@@ -30,7 +31,7 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 int main() {
-  printf("Hello from server\n");
+  printf("Hello from server\nlistening on port: %s\n", PORT);
   int sockfd, new_fd;
   struct addrinfo hints, *servinfo, *p;
   struct sockaddr_storage their_addr;
@@ -105,7 +106,10 @@ int main() {
 
     if (!fork()) {
       close(sockfd);
-      printf("hello from child process");
+      if (send(new_fd, "Hello, world!", 13, 0) == -1)
+        perror("send");
+      close(new_fd);
+      exit(0);
     }
     close(new_fd);
   }
