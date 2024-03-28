@@ -1,3 +1,7 @@
+**.o
+Networking/hw1/client
+Networking/hw1/server
+
 # Dependency directories
 **/node_modules/
 
