@@ -41,7 +41,7 @@ void format_msg(char **msg, char ***args) {
   strcpy(*msg, "");
   for (int i = 0; (*args)[i] != NULL; i++) {
     strcat(*msg, (*args)[i]);
-    if (i < argc - 1) {
+    if (i < argc) { // this is redundent was argc -1
       strcat(*msg, "\n");
     }
   }

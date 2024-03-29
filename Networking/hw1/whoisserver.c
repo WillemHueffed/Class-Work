@@ -52,6 +52,7 @@ int main() {
 
 void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   // Get len of command
+  /*
   int cc = 0;
   for (int i = 0; buf[i] != '\n'; i++) {
     cc++;
@@ -61,9 +62,39 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   printf("buf is: %s", buf);
   strncpy(*command, buf, cc);
   (*command)[cc] = '\0';
+  */
 
-  printf("Printing commands...\n");
-  printf("command is: %s\n", *command);
+  // get count of how many words there are
+  int c = 0;
+  for (int i = 0; i < strlen(buf); i++) {
+    if (buf[i] == '\n') {
+      c++;
+    }
+  }
+
+  // if its not just "whois" then -> we have params we need to allocate for
+  if (c > 1) {
+    *args = malloc(sizeof(char *) * (c - 1));
+  }
+
+  char *tok;
+  int count = 0;
+  tok = strtok(buf, "\n");
+  printf("parsing tokens\n");
+  while (tok != NULL) {
+    printf("%s\n", tok);
+
+    if (count == 0) { // extract command
+      *command = malloc(strlen(tok));
+      strcpy(*command, tok);
+    } else { // extract args
+      (*args)[count] = malloc(strlen(tok));
+      strcpy((*args)[count], tok);
+    }
+    count++;
+    tok = strtok(NULL, "\n");
+  }
+  printf("exiting string parsing\n");
 }
 
 void childProcess(int sockfd, int new_fd) {
