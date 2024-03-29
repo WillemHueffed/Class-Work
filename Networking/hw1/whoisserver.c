@@ -56,10 +56,11 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   for (int i = 0; buf[i] != '\n'; i++) {
     cc++;
   }
+
   *command = malloc(sizeof(char) * cc + 1);
   printf("buf is: %s", buf);
-  strncpy(*command, buf, cc - 1);
-  (*command)[cc + 1] = '\0';
+  strncpy(*command, buf, cc);
+  (*command)[cc] = '\0';
 
   printf("Printing commands...\n");
   printf("command is: %s\n", *command);
