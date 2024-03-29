@@ -19,6 +19,7 @@ void sigchld_handler(int s);
 void *get_in_addr(struct sockaddr *sa);
 void setup(int *sockfd);
 void childProcess(int, int);
+void parse_msg(char **command, char ***args, int numbytes, char *buf);
 
 int main() {
   int sockfd, new_fd;
@@ -49,6 +50,21 @@ int main() {
   return 0;
 }
 
+void parse_msg(char **command, char ***args, int numbytes, char *buf) {
+  // Get len of command
+  int cc = 0;
+  for (int i = 0; buf[i] != '\n'; i++) {
+    cc++;
+  }
+  *command = malloc(sizeof(char) * cc + 1);
+  printf("buf is: %s", buf);
+  strncpy(*command, buf, cc - 1);
+  (*command)[cc + 1] = '\0';
+
+  printf("Printing commands...\n");
+  printf("command is: %s\n", *command);
+}
+
 void childProcess(int sockfd, int new_fd) {
   close(sockfd);
   if (send(new_fd, "Hello, world!", 13, 0) == -1)
@@ -63,7 +79,15 @@ void childProcess(int sockfd, int new_fd) {
   }
   buf[numbytes] = '\0';
   printf("server: received '%s'\n", buf);
+
+  char *command;
+  char **args;
+  printf("calling parse msg\n");
+  parse_msg(&command, &args, numbytes, buf);
+
   close(new_fd);
+
+  printf("exiting child process\n");
   exit(0);
 }
 
