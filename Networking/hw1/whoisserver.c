@@ -51,19 +51,6 @@ int main() {
 }
 
 void parse_msg(char **command, char ***args, int numbytes, char *buf) {
-  // Get len of command
-  /*
-  int cc = 0;
-  for (int i = 0; buf[i] != '\n'; i++) {
-    cc++;
-  }
-
-  *command = malloc(sizeof(char) * cc + 1);
-  printf("buf is: %s", buf);
-  strncpy(*command, buf, cc);
-  (*command)[cc] = '\0';
-  */
-
   // get count of how many words there are
   int c = 0;
   for (int i = 0; i < strlen(buf); i++) {
@@ -72,9 +59,23 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
     }
   }
 
-  // if its not just "whois" then -> we have params we need to allocate for
+  // Allocate memory for command
+  *command = malloc(strlen(buf) + 1); // Add 1 for null terminator
+  if (*command == NULL) {
+    // Handle allocation error
+    fprintf(stderr, "Memory allocation failed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // if it's not just "whois" then we have params we need to allocate for
   if (c > 1) {
     *args = malloc(sizeof(char *) * (c - 1));
+    if (*args == NULL) {
+      // Handle allocation error
+      free(*command); // Free previously allocated memory
+      fprintf(stderr, "Memory allocation failed\n");
+      exit(EXIT_FAILURE);
+    }
   }
 
   char *tok;
@@ -85,14 +86,26 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
     printf("%s\n", tok);
 
     if (count == 0) { // extract command
-      *command = malloc(strlen(tok));
       strcpy(*command, tok);
-    } else { // extract args
-      (*args)[count] = malloc(strlen(tok));
-      strcpy((*args)[count], tok);
+    } else {                                        // extract args
+      (*args)[count - 1] = malloc(strlen(tok) + 1); // Add 1 for null terminator
+      if ((*args)[count - 1] == NULL) {
+        // Handle allocation error
+        free(*command); // Free previously allocated memory
+        for (int i = 0; i < count - 1; i++) {
+          free((*args)[i]); // Free previously allocated memory for args
+        }
+        free(*args); // Free args array itself
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(EXIT_FAILURE);
+      }
+      strcpy((*args)[count - 1], tok);
     }
     count++;
     tok = strtok(NULL, "\n");
+  }
+  if (c > 1) {
+    (*args)[c - 1] = NULL;
   }
   printf("exiting string parsing\n");
 }
@@ -116,6 +129,15 @@ void childProcess(int sockfd, int new_fd) {
   char **args;
   printf("calling parse msg\n");
   parse_msg(&command, &args, numbytes, buf);
+
+  printf("in child process, command is %s\n", command);
+
+  for (int i = 0; args[i] != NULL; i++) {
+    printf("i is %d\n", i);
+    printf("arg: %s\n", args[i]);
+  }
+
+  printf("out of for loop\n");
 
   close(new_fd);
 
