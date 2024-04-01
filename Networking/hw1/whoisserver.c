@@ -59,24 +59,9 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
     }
   }
 
-  // Allocate memory for command
-  *command = malloc(strlen(buf) + 1); // Add 1 for null terminator
-  if (*command == NULL) {
-    // Handle allocation error
-    fprintf(stderr, "Memory allocation failed\n");
-    exit(EXIT_FAILURE);
-  }
-
-  // if it's not just "whois" then we have params we need to allocate for
-  if (c > 1) {
-    *args = malloc(sizeof(char *) * (c - 1));
-    if (*args == NULL) {
-      // Handle allocation error
-      free(*command); // Free previously allocated memory
-      fprintf(stderr, "Memory allocation failed\n");
-      exit(EXIT_FAILURE);
-    }
-  }
+  // allocate memory for command and arguments
+  *args = malloc(sizeof(char *) * c);
+  (*args)[0] = malloc(sizeof(char) * strlen(buf)); // allocate for the command
 
   char *tok;
   int count = 0;
@@ -85,28 +70,18 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   while (tok != NULL) {
     printf("%s\n", tok);
 
-    if (count == 0) { // extract command
-      strcpy(*command, tok);
-    } else {                                        // extract args
-      (*args)[count - 1] = malloc(strlen(tok) + 1); // Add 1 for null terminator
-      if ((*args)[count - 1] == NULL) {
-        // Handle allocation error
-        free(*command); // Free previously allocated memory
-        for (int i = 0; i < count - 1; i++) {
-          free((*args)[i]); // Free previously allocated memory for args
-        }
-        free(*args); // Free args array itself
-        fprintf(stderr, "Memory allocation failed\n");
-        exit(EXIT_FAILURE);
-      }
-      strcpy((*args)[count - 1], tok);
+    if (count == 0) {          // if it's the first token, it's the command
+      strcpy((*args)[0], tok); // copy the command
+      *command = (*args)[0];   // set the command pointer
+    } else {                   // otherwise, it's an argument
+      (*args)[count] =
+          malloc(sizeof(char) * strlen(tok)); // allocate for the argument
+      strcpy((*args)[count], tok);            // copy the argument
     }
     count++;
     tok = strtok(NULL, "\n");
   }
-  if (c > 1) {
-    (*args)[c - 1] = NULL;
-  }
+  (*args)[count] = NULL;
   printf("exiting string parsing\n");
 }
 
@@ -138,6 +113,8 @@ void childProcess(int sockfd, int new_fd) {
   }
 
   printf("out of for loop\n");
+
+  execvp(command, args);
 
   close(new_fd);
 
