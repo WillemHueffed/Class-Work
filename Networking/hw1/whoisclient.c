@@ -11,12 +11,12 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define PORT "3490"
-#define MAXDATASIZE 100
+// #define PORT "10485"
+#define MAXDATASIZE 1000
 // 28 flags for whois * 2 (each arg gets a param) = 56
 #define MAXARGS 56
 
-void setup(int *, char *);
+void setup(int *, char *, char *);
 void *get_in_addr(struct sockaddr *);
 void parse_command_line(int argc, char **argv, char **hostname, char **port,
                         char ***args);
@@ -26,7 +26,6 @@ void format_msg(char **msg, char ***args) {
   int argc = 0;
   for (int i = 0; (*args)[i] != NULL; i++) {
     argc++;
-    printf("%s\n", (*args)[i]);
     total_length += strlen((*args)[i]);
   }
 
@@ -41,7 +40,7 @@ void format_msg(char **msg, char ***args) {
   for (int i = 0; (*args)[i] != NULL; i++) {
     strcat(*msg, (*args)[i]);
     if (i < argc) { // this is redundent was argc -1
-      strcat(*msg, "\n");
+      strcat(*msg, " ");
     }
   }
 }
@@ -61,24 +60,25 @@ int main(int argc, char **argv) {
   int numbytes;
   char buf[MAXDATASIZE];
 
-  setup(&sockfd, argv[1]);
+  setup(&sockfd, argv[1], port);
 
+  /*
   if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
     perror("recv");
     exit(1);
   }
   buf[numbytes] = '\0';
+  */
 
   if (send(sockfd, msg, strlen(msg), 0) == -1)
     perror("send");
 
-  printf("trying to listen for command output put...\n");
   if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
     perror("recv");
     exit(1);
   }
   buf[numbytes] = '\0';
-  printf("client: received '%s'\n", buf);
+  printf("%s\n", buf);
 
   close(sockfd);
   return 0;
@@ -115,7 +115,7 @@ void parse_command_line(int argc, char **argv, char **hostname, char **port,
   }
 }
 
-void setup(int *sockfd, char *argv1) {
+void setup(int *sockfd, char *argv1, char *port) {
   struct addrinfo hints, *servinfo, *p;
   int rv;
   char s[INET6_ADDRSTRLEN];
@@ -124,7 +124,7 @@ void setup(int *sockfd, char *argv1) {
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
-  if ((rv = getaddrinfo(argv1, PORT, &hints, &servinfo)) != 0) {
+  if ((rv = getaddrinfo(argv1, port, &hints, &servinfo)) != 0) {
     fprintf(stderr, "get address info: %s\n", gai_strerror(rv));
     exit(1);
   }

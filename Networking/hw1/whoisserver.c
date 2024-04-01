@@ -11,7 +11,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define PORT "3490"
+#define PORT "10485"
 #define BACKLOG 10
 #define MAXDATASIZE 1000
 
@@ -54,7 +54,7 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   // get count of how many words there are
   int c = 0;
   for (int i = 0; i < strlen(buf); i++) {
-    if (buf[i] == '\n') {
+    if (buf[i] == ' ') {
       c++;
     }
   }
@@ -65,7 +65,7 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
 
   char *tok;
   int count = 0;
-  tok = strtok(buf, "\n");
+  tok = strtok(buf, " ");
   while (tok != NULL) {
     if (count == 0) {          // if it's the first token, it's the command
       strcpy((*args)[0], tok); // copy the command
@@ -76,15 +76,17 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
       strcpy((*args)[count], tok);            // copy the argument
     }
     count++;
-    tok = strtok(NULL, "\n");
+    tok = strtok(NULL, " ");
   }
   (*args)[count] = NULL;
 }
 
 void childProcess(int sockfd, int new_fd) {
   close(sockfd);
+  /*
   if (send(new_fd, "Hello, world!", 13, 0) == -1)
     perror("send");
+  */
 
   char buf[MAXDATASIZE];
   int numbytes;
@@ -180,6 +182,8 @@ void setup(int *sockfd) {
     perror("listen");
     exit(1);
   }
+
+  printf("Listening on port %s\n", PORT);
 
   sa.sa_handler = sigchld_handler;
   sigemptyset(&sa.sa_mask);
