@@ -39,7 +39,7 @@ int main() {
 
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr),
               s, sizeof s);
-    printf("server: got connection from %s\n", s);
+    // printf("server: got connection from %s\n", s);
 
     if (!fork()) {
       childProcess(sockfd, new_fd);
@@ -66,10 +66,7 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   char *tok;
   int count = 0;
   tok = strtok(buf, "\n");
-  printf("parsing tokens\n");
   while (tok != NULL) {
-    printf("%s\n", tok);
-
     if (count == 0) {          // if it's the first token, it's the command
       strcpy((*args)[0], tok); // copy the command
       *command = (*args)[0];   // set the command pointer
@@ -82,7 +79,6 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
     tok = strtok(NULL, "\n");
   }
   (*args)[count] = NULL;
-  printf("exiting string parsing\n");
 }
 
 void childProcess(int sockfd, int new_fd) {
@@ -102,17 +98,8 @@ void childProcess(int sockfd, int new_fd) {
 
   char *command;
   char **args;
-  printf("calling parse msg\n");
+
   parse_msg(&command, &args, numbytes, buf);
-
-  printf("in child process, command is %s\n", command);
-
-  for (int i = 0; args[i] != NULL; i++) {
-    printf("i is %d\n", i);
-    printf("arg: %s\n", args[i]);
-  }
-
-  printf("out of for loop\n");
 
   dup2(new_fd, 1);
   dup2(new_fd, 2);
@@ -121,7 +108,6 @@ void childProcess(int sockfd, int new_fd) {
 
   close(new_fd);
 
-  printf("exiting child process\n");
   exit(0);
 }
 
@@ -141,8 +127,8 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 void setup(int *sockfd) {
-  printf("Hello from server\nlistening on port: %s\n", PORT);
-  // int sockfd, new_fd;
+  // printf("Hello from server\nlistening on port: %s\n", PORT);
+  //  int sockfd, new_fd;
   struct addrinfo hints, *servinfo, *p;
   // struct addrinfo hints, *servinfo, *p;
   // struct sockaddr_storage their_addr;

@@ -29,7 +29,6 @@ void format_msg(char **msg, char ***args) {
     printf("%s\n", (*args)[i]);
     total_length += strlen((*args)[i]);
   }
-  // printf("total length is: %d\n", total_length);
 
   *msg = malloc(total_length + (argc)); // seperating each arg with a \n ->
                                         // requires argc additional bytes
@@ -58,17 +57,6 @@ int main(int argc, char **argv) {
 
   format_msg(&msg, &args);
 
-  printf("The formatted msg is:\n%s", msg);
-
-  // printf("hostname: %s\n", hostname);
-  // printf("port: %s\n", port);
-
-  // for (int i = 0; args[i] != NULL; i++) {
-  //  printf("arg: %s\n", args[i]);
-  //}
-
-  ///
-
   int sockfd;
   int numbytes;
   char buf[MAXDATASIZE];
@@ -80,7 +68,6 @@ int main(int argc, char **argv) {
     exit(1);
   }
   buf[numbytes] = '\0';
-  printf("client: received '%s'\n", buf);
 
   if (send(sockfd, msg, strlen(msg), 0) == -1)
     perror("send");
@@ -105,7 +92,7 @@ void parse_command_line(int argc, char **argv, char **hostname, char **port,
     exit(1);
   }
 
-  // allocate me
+  // allocate mem
   *args = malloc((sizeof(char *) * argc));
   if (*args == NULL) {
     printf("Memory allocation failed\n");
