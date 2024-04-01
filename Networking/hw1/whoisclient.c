@@ -85,6 +85,14 @@ int main(int argc, char **argv) {
   if (send(sockfd, msg, strlen(msg), 0) == -1)
     perror("send");
 
+  printf("trying to listen for command output put...\n");
+  if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
+    perror("recv");
+    exit(1);
+  }
+  buf[numbytes] = '\0';
+  printf("client: received '%s'\n", buf);
+
   close(sockfd);
   return 0;
 }
@@ -97,7 +105,7 @@ void parse_command_line(int argc, char **argv, char **hostname, char **port,
     exit(1);
   }
 
-  // allocate mem
+  // allocate me
   *args = malloc((sizeof(char *) * argc));
   if (*args == NULL) {
     printf("Memory allocation failed\n");

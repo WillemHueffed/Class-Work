@@ -114,6 +114,9 @@ void childProcess(int sockfd, int new_fd) {
 
   printf("out of for loop\n");
 
+  dup2(new_fd, 1);
+  dup2(new_fd, 2);
+
   execvp(command, args);
 
   close(new_fd);
