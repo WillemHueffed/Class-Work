@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
         loop_flag = 0;
     } else {
       buf[numbytes] = '\0';
-      printf("%s\n", buf);
+      printf("%s", buf);
       if (!eom_flag)
         eom_flag = 1;
     }
