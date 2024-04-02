@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #define PORT "10485"
-#define BACKLOG 10
+#define BACKLOG 20
 #define MAXDATASIZE 1000
 
 void sigchld_handler(int s);
