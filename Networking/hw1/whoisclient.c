@@ -42,12 +42,22 @@ int main(int argc, char **argv) {
   if (send(sockfd, msg, strlen(msg), 0) == -1)
     perror("send");
 
-  if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
-    perror("recv");
-    exit(1);
+  int loop_flag = 1;
+  int eom_flag = 0;
+  while (loop_flag) {
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    } else if (numbytes == 0) {
+      if (eom_flag)
+        loop_flag = 0;
+    } else {
+      buf[numbytes] = '\0';
+      printf("%s\n", buf);
+      if (!eom_flag)
+        eom_flag = 1;
+    }
   }
-  buf[numbytes] = '\0';
-  printf("%s\n", buf);
 
   close(sockfd);
   return 0;
