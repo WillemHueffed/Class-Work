@@ -18,8 +18,40 @@
 
 void setup(int *, char *, char *);
 void *get_in_addr(struct sockaddr *);
-void parse_command_line(int argc, char **argv, char **hostname, char **port,
-                        char ***args);
+void parse_command_line(int, char **, char **, char **, char ***);
+
+void format_msg(char **, char ***);
+
+int main(int argc, char **argv) {
+  char *hostname = NULL;
+  char *port = NULL;
+  char *command = NULL;
+  char **args = NULL;
+  char *msg;
+
+  parse_command_line(argc, argv, &hostname, &port, &args);
+
+  format_msg(&msg, &args);
+
+  int sockfd;
+  int numbytes;
+  char buf[MAXDATASIZE];
+
+  setup(&sockfd, argv[1], port);
+
+  if (send(sockfd, msg, strlen(msg), 0) == -1)
+    perror("send");
+
+  if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
+    perror("recv");
+    exit(1);
+  }
+  buf[numbytes] = '\0';
+  printf("%s\n", buf);
+
+  close(sockfd);
+  return 0;
+}
 
 void format_msg(char **msg, char ***args) {
   int total_length = 0;
@@ -43,45 +75,6 @@ void format_msg(char **msg, char ***args) {
       strcat(*msg, " ");
     }
   }
-}
-
-int main(int argc, char **argv) {
-  char *hostname = NULL;
-  char *port = NULL;
-  char *command = NULL;
-  char **args = NULL;
-  char *msg;
-
-  parse_command_line(argc, argv, &hostname, &port, &args);
-
-  format_msg(&msg, &args);
-
-  int sockfd;
-  int numbytes;
-  char buf[MAXDATASIZE];
-
-  setup(&sockfd, argv[1], port);
-
-  /*
-  if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
-    perror("recv");
-    exit(1);
-  }
-  buf[numbytes] = '\0';
-  */
-
-  if (send(sockfd, msg, strlen(msg), 0) == -1)
-    perror("send");
-
-  if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
-    perror("recv");
-    exit(1);
-  }
-  buf[numbytes] = '\0';
-  printf("%s\n", buf);
-
-  close(sockfd);
-  return 0;
 }
 
 void parse_command_line(int argc, char **argv, char **hostname, char **port,

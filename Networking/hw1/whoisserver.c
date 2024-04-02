@@ -39,7 +39,6 @@ int main() {
 
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr),
               s, sizeof s);
-    // printf("server: got connection from %s\n", s);
 
     if (!fork()) {
       childProcess(sockfd, new_fd);
@@ -69,8 +68,8 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
   while (tok != NULL) {
     if (count == 0) {          // if it's the first token, it's the command
       strcpy((*args)[0], tok); // copy the command
-      *command = (*args)[0];   // set the command pointer
-    } else {                   // otherwise, it's an argument
+      *command = (*args)[0];
+    } else {
       (*args)[count] =
           malloc(sizeof(char) * strlen(tok)); // allocate for the argument
       strcpy((*args)[count], tok);            // copy the argument
@@ -83,10 +82,6 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
 
 void childProcess(int sockfd, int new_fd) {
   close(sockfd);
-  /*
-  if (send(new_fd, "Hello, world!", 13, 0) == -1)
-    perror("send");
-  */
 
   char buf[MAXDATASIZE];
   int numbytes;
@@ -102,6 +97,13 @@ void childProcess(int sockfd, int new_fd) {
   char **args;
 
   parse_msg(&command, &args, numbytes, buf);
+
+  if (strcmp(command, "whois") != 0) {
+    if (send(new_fd, "Internal error: the command is not supported!", 45, 0) ==
+        -1) {
+      perror("send");
+    }
+  }
 
   dup2(new_fd, 1);
   dup2(new_fd, 2);
@@ -129,16 +131,9 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 void setup(int *sockfd) {
-  // printf("Hello from server\nlistening on port: %s\n", PORT);
-  //  int sockfd, new_fd;
   struct addrinfo hints, *servinfo, *p;
-  // struct addrinfo hints, *servinfo, *p;
-  // struct sockaddr_storage their_addr;
-  // socklen_t sin_size;
   struct sigaction sa;
-  // char s[INET6_ADDRSTRLEN];
   int yes = 1;
-
   int rv;
 
   memset(&hints, 0, sizeof(hints));
