@@ -11,7 +11,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// #define PORT "10485"
 #define MAXDATASIZE 1000
 // 28 flags for whois * 2 (each arg gets a param) = 56
 #define MAXARGS 56
