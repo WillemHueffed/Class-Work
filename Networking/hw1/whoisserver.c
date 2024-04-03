@@ -114,7 +114,7 @@ void childProcess(int sockfd, int new_fd) {
   parse_msg(&command, &args, numbytes, buf);
 
   if (strcmp(command, "whois") != 0) {
-    if (send(new_fd, "Internal error: the command is not supported!\n", 45,
+    if (send(new_fd, "Internal error: the command is not supported!\n", 46,
              0) == -1) {
       perror("send");
       exit(1);
