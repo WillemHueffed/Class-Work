@@ -1,8 +1,6 @@
 #include <arpa/inet.h>
-#include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +56,17 @@ int main(int argc, char **argv) {
     }
   }
 
-  close(sockfd);
+  if (close(sockfd) == -1) {
+    perror("close");
+    exit(1);
+  }
+
+  free(msg);
+  for (int i = 0; args[i] != NULL; i++) {
+    free(args[i]);
+  }
+  free(args);
+
   return 0;
 }
 
@@ -73,7 +81,7 @@ void format_msg(char **msg, char ***args) {
   *msg = malloc(total_length + (argc)); // seperating each arg with a \n ->
                                         // requires argc additional bytes
   if (msg == NULL) {
-    printf("memory allocation failed");
+    perror("malloc");
     exit(1);
   }
 
@@ -97,7 +105,7 @@ void parse_command_line(int argc, char **argv, char **hostname, char **port,
   // allocate mem
   *args = malloc((sizeof(char *) * argc));
   if (*args == NULL) {
-    printf("Memory allocation failed\n");
+    perror("malloc");
     exit(1);
   }
 
@@ -110,7 +118,7 @@ void parse_command_line(int argc, char **argv, char **hostname, char **port,
   for (int i = 2; i < argc; i++) {
     (*args)[ac] = malloc(strlen(argv[i]) + 1);
     if ((*args)[ac] == NULL) {
-      printf("Memory allocation failed\n");
+      perror("malloc");
       exit(1);
     }
     strcpy((*args)[ac++], argv[i]);
@@ -138,7 +146,10 @@ void setup(int *sockfd, char *argv1, char *port) {
       continue;
     }
     if (connect(*sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-      close(*sockfd);
+      if (close(*sockfd) == -1) {
+        perror("close");
+        exit(1);
+      }
       perror("client: listen");
       continue;
     }

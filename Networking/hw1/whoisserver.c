@@ -60,7 +60,15 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
 
   // allocate memory for command and arguments
   *args = malloc(sizeof(char *) * c);
+  if (*args == NULL) {
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
   (*args)[0] = malloc(sizeof(char) * strlen(buf)); // allocate for the command
+  if ((*args)[0] == NULL) {
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
 
   char *tok;
   int count = 0;
@@ -72,7 +80,11 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
     } else {
       (*args)[count] =
           malloc(sizeof(char) * strlen(tok)); // allocate for the argument
-      strcpy((*args)[count], tok);            // copy the argument
+      if ((*args)[count] == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+      }
+      strcpy((*args)[count], tok); // copy the argument
     }
     count++;
     tok = strtok(NULL, " ");
@@ -81,7 +93,10 @@ void parse_msg(char **command, char ***args, int numbytes, char *buf) {
 }
 
 void childProcess(int sockfd, int new_fd) {
-  close(sockfd);
+  if (close(sockfd) == -1) {
+    perror("close");
+    exit(1);
+  }
 
   char buf[MAXDATASIZE];
   int numbytes;
@@ -105,12 +120,20 @@ void childProcess(int sockfd, int new_fd) {
     }
   }
 
-  dup2(new_fd, 1);
-  dup2(new_fd, 2);
+  if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
+    perror("dup2");
+    exit(1);
+  }
 
-  execvp(command, args);
+  if (execvp(command, args) == -1) {
+    perror("execvp");
+    exit(1);
+  }
 
-  close(new_fd);
+  if (close(new_fd) == -1) {
+    perror("close");
+    exit(1);
+  }
 
   exit(0);
 }
