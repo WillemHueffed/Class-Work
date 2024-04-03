@@ -117,6 +117,7 @@ void childProcess(int sockfd, int new_fd) {
     if (send(new_fd, "Internal error: the command is not supported!", 45, 0) ==
         -1) {
       perror("send");
+      exit(1);
     }
   }
 
@@ -178,7 +179,7 @@ void setup(int *sockfd) {
     if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) ==
         -1) {
       perror("setsockopt");
-      exit(1);
+      continue;
     }
 
     if (bind(*sockfd, p->ai_addr, p->ai_addrlen) == -1) {
