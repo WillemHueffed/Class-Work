@@ -119,16 +119,15 @@ void childProcess(int sockfd, int new_fd) {
       perror("send");
       exit(1);
     }
-  }
-
-  if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
-    perror("dup2");
-    exit(1);
-  }
-
-  if (execvp(command, args) == -1) {
-    perror("execvp");
-    exit(1);
+  } else {
+    if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
+      perror("dup2");
+      exit(1);
+    }
+    if (execvp(command, args) == -1) {
+      perror("execvp");
+      exit(1);
+    }
   }
 
   if (close(new_fd) == -1) {
