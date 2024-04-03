@@ -10,3 +10,4 @@
 - 1024 byte buffer size
 - Only supports 20 clients
 - Forking for each client is has high overhead
+- The client does a spinwait while server processes request -> inefficient
