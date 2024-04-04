@@ -117,7 +117,7 @@ void childProcess(int sockfd, int new_fd) {
     int bytes_sent = 0;
     char *msg = "Internal error: the command is not supported!\n";
     while (bytes_sent < sizeof(msg)) {
-      int x = send(new_fd, &msg, strlen(msg) - bytes_sent, 0) == -1;
+      int x = send(new_fd, &msg, strlen(msg) - bytes_sent, 0);
       if (x == 0 || x == 1) {
         perror("send");
         close(new_fd);
