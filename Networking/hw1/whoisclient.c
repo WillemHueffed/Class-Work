@@ -11,7 +11,6 @@
 
 #define MAXDATASIZE 1000
 // 28 flags for whois * 2 (each arg gets a param) = 56
-#define MAXARGS 56
 
 void setup(int *, char *, char *);
 void *get_in_addr(struct sockaddr *);
@@ -25,12 +24,10 @@ int main(int argc, char **argv) {
   char *command = NULL;
   char **args = NULL;
   char *msg;
-  char *msg2;
 
   parse_command_line(argc, argv, &hostname, &port, &args);
 
   format_msg(&msg, &args);
-  msg2 = msg;
 
   int sockfd;
   int numbytes;
@@ -49,7 +46,8 @@ int main(int argc, char **argv) {
     msg += x;
     bytes_sent += x;
   }
-  free(msg2);
+  msg -= bytes_sent;
+  free(msg);
 
   int loop_flag = 1;
   int eom_flag = 0;

@@ -114,11 +114,16 @@ void childProcess(int sockfd, int new_fd) {
   parse_msg(&command, &args, numbytes, buf);
 
   if (strcmp(command, "whois") != 0) {
-    if (send(new_fd, "Internal error: the command is not supported!\n", 46,
-             0) == -1) {
+    int bytes_sent = 0;
+    char *msg = "Internal error: the command is not supported!\n";
+    int x = send(new_fd, &msg, strlen(msg) - bytes_sent, 0) == -1;
+    if (x == 0 || x == 1) {
       perror("send");
+      close(new_fd);
       exit(1);
     }
+    msg += x;
+    bytes_sent += x;
   } else {
     if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
       perror("dup2");
