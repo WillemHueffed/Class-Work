@@ -29,6 +29,11 @@ int main(int argc, char **argv) {
 
   format_msg(&msg, &args);
 
+  for (int i = 0; args[i] != NULL; i++) {
+    free(args[i]);
+  }
+  free(args);
+
   int sockfd;
   int numbytes;
   char buf[MAXDATASIZE];
@@ -70,12 +75,6 @@ int main(int argc, char **argv) {
     perror("close");
     exit(1);
   }
-
-  free(msg);
-  for (int i = 0; args[i] != NULL; i++) {
-    free(args[i]);
-  }
-  free(args);
 
   return 0;
 }
