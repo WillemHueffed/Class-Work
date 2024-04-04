@@ -39,10 +39,6 @@ int main(int argc, char **argv) {
   setup(&sockfd, argv[1], port);
 
   int bytes_sent = 0;
-  if (!(strlen(msg) == sizeof(msg))) {
-    printf("different\n");
-    exit(1);
-  }
   while (bytes_sent < sizeof(msg)) {
     int x = send(sockfd, msg, strlen(msg) - bytes_sent, 0);
     if (x == -1 || x == 0) {
