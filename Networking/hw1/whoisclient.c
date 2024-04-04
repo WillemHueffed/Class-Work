@@ -10,7 +10,6 @@
 #include <unistd.h>
 
 #define MAXDATASIZE 1000
-// 28 flags for whois * 2 (each arg gets a param) = 56
 
 void setup(int *, char *, char *);
 void *get_in_addr(struct sockaddr *);
@@ -45,6 +44,7 @@ int main(int argc, char **argv) {
     int x = send(sockfd, msg, strlen(msg) - bytes_sent, 0);
     if (x == -1 || x == 0) {
       perror("send");
+      free(msg);
       close(sockfd);
       exit(1);
     }
@@ -54,21 +54,14 @@ int main(int argc, char **argv) {
   msg -= bytes_sent;
   free(msg);
 
-  int loop_flag = 1;
-  int eom_flag = 0;
-  while (loop_flag) {
+  int flag = 1;
+  while (flag) {
     numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0);
-    if (numbytes == 0) {
-      if (eom_flag)
-        loop_flag = 0;
-    } else if (numbytes == -1) {
-      perror("recv");
-      exit(1);
+    if (numbytes == -1 || numbytes == 0) {
+      flag = 0;
     } else {
       buf[numbytes] = '\0';
       printf("%s", buf);
-      if (!eom_flag)
-        eom_flag = 1;
     }
   }
 
@@ -88,7 +81,7 @@ void format_msg(char **msg, char ***args) {
     total_length += strlen((*args)[i]);
   }
 
-  *msg = malloc(total_length + (argc)); // seperating each arg with a \n ->
+  *msg = malloc(total_length + (argc)); // seperating each arg with a " " ->
                                         // requires argc additional bytes
   if (msg == NULL) {
     perror("malloc");
@@ -98,7 +91,7 @@ void format_msg(char **msg, char ***args) {
   strcpy(*msg, "");
   for (int i = 0; (*args)[i] != NULL; i++) {
     strcat(*msg, (*args)[i]);
-    if (i < argc) { // this is redundent was argc -1
+    if (i < argc) {
       strcat(*msg, " ");
     }
   }
@@ -173,7 +166,6 @@ void setup(int *sockfd, char *argv1, char *port) {
 
   inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s,
             sizeof(s));
-  // printf("client: connecting to %s\n", s);
 
   freeaddrinfo(servinfo);
 }

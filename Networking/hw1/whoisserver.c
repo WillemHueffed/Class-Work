@@ -122,16 +122,9 @@ void childProcess(int sockfd, int new_fd) {
       int x = send(new_fd, msg + bytes_sent, msg_length - bytes_sent, 0);
       if (x == -1 || x == 0) {
         perror("send");
-        close(new_fd);
         exit(1);
       }
       bytes_sent += x;
-    }
-    // Send an empty message so client knows to close the connection
-    if (send(new_fd, "", 1, 0) == -1) {
-      perror("send");
-      close(new_fd);
-      exit(1);
     }
   } else {
     if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
