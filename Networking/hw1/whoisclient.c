@@ -57,12 +57,13 @@ int main(int argc, char **argv) {
   int loop_flag = 1;
   int eom_flag = 0;
   while (loop_flag) {
-    if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) == -1) {
-      perror("recv");
-      exit(1);
-    } else if (numbytes == 0) {
+    numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0);
+    if (numbytes == 0) {
       if (eom_flag)
         loop_flag = 0;
+    } else if (numbytes == -1) {
+      perror("recv");
+      exit(1);
     } else {
       buf[numbytes] = '\0';
       printf("%s", buf);
