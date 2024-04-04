@@ -25,10 +25,12 @@ int main(int argc, char **argv) {
   char *command = NULL;
   char **args = NULL;
   char *msg;
+  char *msg2;
 
   parse_command_line(argc, argv, &hostname, &port, &args);
 
   format_msg(&msg, &args);
+  msg2 = msg;
 
   int sockfd;
   int numbytes;
@@ -36,8 +38,22 @@ int main(int argc, char **argv) {
 
   setup(&sockfd, argv[1], port);
 
-  if (send(sockfd, msg, strlen(msg), 0) == -1)
-    perror("send");
+  int bytes_sent = 0;
+  if (!(strlen(msg) == sizeof(msg))) {
+    printf("different\n");
+    exit(1);
+  }
+  while (bytes_sent < sizeof(msg)) {
+    int x = send(sockfd, msg, strlen(msg) - bytes_sent, 0);
+    if (x == -1 || x == 0) {
+      perror("send");
+      close(sockfd);
+      exit(1);
+    }
+    msg += x;
+    bytes_sent += x;
+  }
+  free(msg2);
 
   int loop_flag = 1;
   int eom_flag = 0;
