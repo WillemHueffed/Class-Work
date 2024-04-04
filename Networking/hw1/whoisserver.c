@@ -116,7 +116,7 @@ void childProcess(int sockfd, int new_fd) {
   if (strcmp(command, "whois") != 0) {
     int bytes_sent = 0;
     char *msg = "Internal error: the command is not supported!\n";
-    int msg_length = strlen(msg); // Calculate the length of the message
+    int msg_length = strlen(msg);
 
     while (bytes_sent < msg_length) {
       int x = send(new_fd, msg + bytes_sent, msg_length - bytes_sent, 0);
@@ -126,6 +126,12 @@ void childProcess(int sockfd, int new_fd) {
         exit(1);
       }
       bytes_sent += x;
+    }
+    // Send an empty message so client knows to close the connection
+    if (send(new_fd, "", 1, 0) == -1) {
+      perror("send");
+      close(new_fd);
+      exit(1);
     }
   } else {
     if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
