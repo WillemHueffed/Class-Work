@@ -116,14 +116,15 @@ void childProcess(int sockfd, int new_fd) {
   if (strcmp(command, "whois") != 0) {
     int bytes_sent = 0;
     char *msg = "Internal error: the command is not supported!\n";
-    while (bytes_sent < sizeof(msg)) {
-      int x = send(new_fd, &msg, strlen(msg) - bytes_sent, 0);
-      if (x == 0 || x == 1) {
+    int msg_length = strlen(msg); // Calculate the length of the message
+
+    while (bytes_sent < msg_length) {
+      int x = send(new_fd, msg + bytes_sent, msg_length - bytes_sent, 0);
+      if (x == -1 || x == 0) {
         perror("send");
         close(new_fd);
         exit(1);
       }
-      msg += x;
       bytes_sent += x;
     }
   } else {
