@@ -1,13 +1,13 @@
 Note: whenever an endpoint says "a specific X", the client should be allowed to use a unique identifier to specify which X they want to interact with.
 
-X 1. Add an author => post /authors/
-X 2. List all authors => get /authors/
-X 3. Update a specific author's bio => put /authors/id -> done
+Y X 1. Add an author => post /authors/
+Y X 2. List all authors => get /authors/
+Y X 3. Update a specific author's bio => put /authors/id -> done
 
-X 4. Add a book => post /books/
-X 5. List all books => get /books/
-X 6. List all books that match a given list of tags => get /books/tags=...
-X 7. List all books by a specific author => get /books/author=...
+Y X 4. Add a book => post /books/
+Y X 5. List all books => get /books/
+Y X 6. List all books that match a given list of tags => get /books/tags=...
+Y X 7. List all books by a specific author => get /books/author=...
 X 8. Get the details of a specific book => get book/book_id=...
 X 9. Update any of the attributes of a specific book => put books/book_id
 X 10. Remove a book (and by extension all its editions) => delete books/bood_id

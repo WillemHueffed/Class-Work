@@ -35,23 +35,28 @@ export const list_books_by_tags = (req: Request, res: Response): void => {
 };
 
 export const list_books_by_author = (req: Request, res: Response): void => {
-  const authorID = req.query.authorID as string;
-  if (!authorID) {
+  const id = req.params.id as string;
+  if (!id) {
     res.status(400).json({ error: "Please provide an author id" });
     return;
   }
-  const filteredBooks = books.filter((book) => book.p_auth.id === authorID);
+  const filteredBooks = books.filter((book) => book.p_auth.id === id);
+
+  if (!filteredBooks) {
+    res.status(404).json({ error: "Books by that author not found" });
+    return;
+  }
 
   res.status(200).json(filteredBooks);
 };
 
 export const get_book_details = (req: Request, res: Response): void => {
-  const bookID = req.query.bookID;
-  if (!bookID) {
+  const id = req.query.id;
+  if (!id) {
     res.status(400).json({ error: "Please provide an author id" });
     return;
   }
-  const book = books.find((book) => book.id === bookID);
+  const book = books.find((book) => book.id === id);
   res.status(200).json(book);
 };
 
@@ -70,8 +75,8 @@ export const update_book_attrs = (req: Request, res: Response): void => {
 };
 
 export const delete_book = (req: Request, res: Response): void => {
-  const bookID = req.params.bookID;
-  const index = books.findIndex((book) => book.id === bookID);
+  const id = req.params.id;
+  const index = books.findIndex((book) => book.id === id);
   if (index === -1) {
     res.status(404).json({ error: "Book not found" });
     return;
