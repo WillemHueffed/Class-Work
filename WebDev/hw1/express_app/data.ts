@@ -22,6 +22,7 @@ class Book {
   org_pub_date: string;
   tags: string[];
   p_auth: Author;
+  editions: Edition[];
   id: string;
 
   constructor(
@@ -37,6 +38,7 @@ class Book {
     this.tags = tags;
     this.p_auth = p_auth;
     this.id = uuidv4();
+    this.editions = [];
   }
 }
 
@@ -54,6 +56,5 @@ class Edition {
 
 const authors: Author[] = [];
 const books: Book[] = [];
-const editions: Edition[] = [];
 
-export { Author, Book, Edition, authors, books, editions };
+export { Author, Book, Edition, authors, books };
