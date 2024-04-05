@@ -2,21 +2,21 @@ import { Request, Response } from "express";
 import { authors, Author } from "../data";
 
 export const add_author = (req: Request, res: Response): void => {
-  const { full_name, bio, bday, p_genre } = req.body;
-  if (!full_name || !bio || !bday || !p_genre) {
+  const { name, bio, bday, genre } = req.body;
+  if (!name || !bio || !bday || !genre) {
     res
       .status(400)
-      .json({ error: "Please provide full_name, bio, bday, and p_genre" });
+      .json({ error: "Please provide name, bio, bday, and genre" });
     return;
   }
-  const author = new Author(full_name, bio, bday, p_genre);
+  const author = new Author(name, bio, bday, genre);
   console.log(req.body);
   authors.push(author);
-  res.status(201).json({ message: "Author created successfully", author });
+  res.status(200).json({ author });
 };
 
 export const list_authors = (req: Request, res: Response): void => {
-  res.status(200).json(authors);
+  res.status(200).json({ authors });
 };
 
 export const update_author_bio = (req: Request, res: Response): void => {
@@ -28,5 +28,5 @@ export const update_author_bio = (req: Request, res: Response): void => {
     return;
   }
   author.bio = bio;
-  res.status(200).json({ message: "Author bio updated successfully", author });
+  res.status(200).json({ author });
 };

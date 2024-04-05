@@ -12,7 +12,7 @@ export const add_book = (req: Request, res: Response): void => {
   const book = new Book(title, subtitle, org_pub_date, tags, p_auth);
   console.log(req.body);
   books.push(book);
-  res.status(200).json({ message: "Book created successfully", book });
+  res.status(200).json({ book });
 };
 
 export const list_all_books = (req: Request, res: Response): void => {
@@ -78,5 +78,5 @@ export const delete_book = (req: Request, res: Response): void => {
   }
   books.splice(index, 1);
 
-  res.status(200);
+  res.status(204);
 };

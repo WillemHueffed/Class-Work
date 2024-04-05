@@ -12,7 +12,7 @@ export const add_edition = (req: Request, res: Response): void => {
   const edition = new Edition(ed_number, pub_date);
   book.editions.push(edition);
 
-  res.status(200).json({ message: "Book edition created sucsessfully", book });
+  res.status(200).json({ book });
 };
 
 export const list_editions = (req: Request, res: Response): void => {
@@ -44,5 +44,5 @@ export const delete_edition = (req: Request, res: Response): void => {
   }
   book.editions.splice(editionIndex, 1);
 
-  res.status(200).json({ message: "Edition deleted successfully" });
+  res.status(204);
 };
