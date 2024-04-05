@@ -2,8 +2,8 @@ import { Request, Response } from "express";
 import { authors, Author } from "../data";
 
 export const add_author = (req: Request, res: Response): void => {
-  const { full_name, bio, bday, p_genre } = req.body;
-  const author = new Author(full_name, bio, bday, p_genre);
+  const { full_name, bio, bday, p_genre, id } = req.body;
+  const author = new Author(full_name, bio, bday, p_genre, id);
   console.log(req.body);
   authors.push(author);
   res.status(201).json({ message: "Author created successfully", author });

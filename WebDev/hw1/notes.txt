@@ -1,17 +1,17 @@
 Note: whenever an endpoint says "a specific X", the client should be allowed to use a unique identifier to specify which X they want to interact with.
 
-1. Add an author => post /authors/
-2. List all authors => get /authors/
-3. Update a specific author's bio => put /authors/id
+X 1. Add an author => post /authors/
+X 2. List all authors => get /authors/
+X 3. Update a specific author's bio => put /authors/id -> done
 
-4. Add a book => post /books/
-5. List all books => get /books/
-6. List all books that match a given list of tags => get /books/tags=...
-7. List all books by a specific author => get /books/author=...
-8. Get the details of a specific book => get book/book_id=...
-9. Update any of the attributes of a specific book => put books/book_id
-10. Remove a book (and by extension all its editions) => delete books/bood_id
+X 4. Add a book => post /books/
+X 5. List all books => get /books/
+X 6. List all books that match a given list of tags => get /books/tags=...
+X 7. List all books by a specific author => get /books/author=...
+X 8. Get the details of a specific book => get book/book_id=...
+X 9. Update any of the attributes of a specific book => put books/book_id
+X 10. Remove a book (and by extension all its editions) => delete books/bood_id
 
-11. Add an edition of a specific book => post books/bood_id/editions
-12. List editions of a specific book => get books/bood_id/editions
-13. Remove an edition of a specific book => delete books/book_id/editions/edition_id
+X 11. Add an edition of a specific book => post books/bood_id/editions
+X 12. List editions of a specific book => get books/bood_id/editions
+X 13. Remove an edition of a specific book => delete books/book_id/editions/edition_id
