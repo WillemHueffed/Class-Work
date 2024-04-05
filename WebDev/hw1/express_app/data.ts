@@ -1,22 +1,18 @@
+import { v4 as uuidv4 } from "uuid";
+
 class Author {
   name: string;
   bio: string;
   bday: string;
   genre: string;
-  id: number;
+  id: string;
 
-  constructor(
-    name: string,
-    bio: string,
-    bday: string,
-    genre: string,
-    id: number,
-  ) {
+  constructor(name: string, bio: string, bday: string, genre: string) {
     this.name = name;
     this.bio = bio;
     this.bday = bday;
     this.genre = genre;
-    this.id = id;
+    this.id = uuidv4();
   }
 }
 
@@ -26,7 +22,7 @@ class Book {
   org_pub_date: string;
   tags: string[];
   p_auth: Author;
-  id: number;
+  id: string;
 
   constructor(
     title: string,
@@ -34,30 +30,30 @@ class Book {
     org_pub_date: string,
     tags: string[],
     p_auth: Author,
-    id: number,
   ) {
     this.title = title;
     this.subtitle = subtitle;
     this.org_pub_date = org_pub_date;
     this.tags = tags;
     this.p_auth = p_auth;
-    this.id = id;
+    this.id = uuidv4();
   }
 }
 
-class BookEd {
+class Edition {
   ed_num: number;
   pub_date: string;
-  id: number;
+  id: string;
 
-  constructor(ed_num: number, pub_date: string, id: number) {
+  constructor(ed_num: number, pub_date: string) {
     this.ed_num = ed_num;
     this.pub_date = pub_date;
-    this.id = id;
+    this.id = uuidv4();
   }
 }
 
 const authors: Author[] = [];
 const books: Book[] = [];
+const editions: Edition[] = [];
 
-export { Author, Book, BookEd, authors, books };
+export { Author, Book, Edition, authors, books, editions };
