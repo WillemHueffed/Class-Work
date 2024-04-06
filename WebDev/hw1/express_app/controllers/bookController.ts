@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { books, Book } from "../data";
+import { Author, books, Book } from "../data";
 
 export const add_book = (req: Request, res: Response): void => {
   const { title, subtitle, org_pub_date, tags, p_auth } = req.body;
@@ -64,42 +64,41 @@ export const get_book_details = (req: Request, res: Response): void => {
   res.status(200).json(book);
 };
 
+interface PatchReqBody {
+  title?: string;
+  subtitle?: string;
+  org_pub_date?: string;
+  tags?: string[];
+  p_auth?: Author;
+}
+
 export const update_book_attrs = (req: Request, res: Response): void => {
-  const bookId = req.params.id as string;
-  const attribute = req.body.attribute as keyof Book;
-  const value = req.body.value;
+  const id = req.params.id as string;
+  const { title, subtitle, org_pub_date, tags, p_auth } = req.body;
 
-  if (!bookId || !attribute || value === undefined) {
-    res
-      .status(400)
-      .json({ error: "Please provide book id, attribute, and value" });
-    return;
-  }
-
-  const bookIndex = books.findIndex((book) => book.id === bookId);
-
-  if (bookIndex === -1) {
+  const book = books.find((book) => book.id === id);
+  if (!book) {
     res.status(404).json({ error: "Book not found" });
     return;
   }
 
-  // Validate if the provided attribute exists in the Book interface
-  if (!(attribute in books[bookIndex])) {
-    res.status(400).json({ error: "Invalid attribute provided" });
-    return;
+  if (title) {
+    book.title = title;
+  }
+  if (subtitle) {
+    book.subtitle = subtitle;
+  }
+  if (org_pub_date) {
+    book.org_pub_date = org_pub_date;
+  }
+  if (tags) {
+    book.tags = tags;
+  }
+  if (p_auth) {
+    book.p_auth = p_auth;
   }
 
-  // Validate if the provided value matches the type of the attribute in the Book interface
-  const attributeType = typeof books[bookIndex][attribute];
-  if (typeof value !== attributeType) {
-    res.status(400).json({ error: `Value should be of type ${attributeType}` });
-    return;
-  }
-
-  books[bookIndex][attribute] = value;
-  res.json({
-    message: `Attribute '${attribute}' updated successfully for book with id '${bookId}'`,
-  });
+  res.status(200).send(book);
 };
 
 export const delete_book = (req: Request, res: Response): void => {
@@ -112,4 +111,5 @@ export const delete_book = (req: Request, res: Response): void => {
   books.splice(index, 1);
 
   res.status(204);
+  return;
 };
