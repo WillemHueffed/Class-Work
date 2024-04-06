@@ -1,15 +1,33 @@
-import { it, describe, expect } from "@jest/globals";
+import { it, describe, expect, beforeAll } from "@jest/globals";
 import request from "supertest";
 import app from "../app";
-import { Book, books, Author, authors } from "../data";
+import { Book, books, Author, authors, Edition } from "../data";
 
 describe("Book Router", () => {
-  describe("GET /books", () => {
-    it("should return all books", async () => {
-      const response = await request(app).get("/books");
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-    });
+  beforeAll(async () => {
+    for (let i = 1; i < 11; i++) {
+      const author: Author = new Author(
+        `name${i}`,
+        `bio${i}`,
+        `bday${i}`,
+        `genre${i}`,
+      );
+      const book: Book = new Book(
+        `book${i}`,
+        `sub${i}`,
+        `pub${i}`,
+        [`tag${i}`],
+        author,
+      );
+      authors.push(author);
+      books.push(book);
+    }
+    for (let i = 1; i < books.length / 2; i++) {
+      for (let j = 1; j < 4; j++) {
+        const edition: Edition = new Edition(j, `date${j}`);
+        books[i].editions.push(edition);
+      }
+    }
   });
 
   describe("POST /books", () => {
@@ -49,40 +67,41 @@ describe("Book Router", () => {
 
   describe("GET /books/byAuthor/:authorID", () => {
     it("returns books filtered by author", async () => {
-      const authorID = "sample_author_id";
-      const response = await request(app).get(`/books/byAuthor/${authorID}`);
+      const id = authors[0].id;
+      const response = await request(app).get(`/books/byAuthor/${id}`);
 
       expect(response.statusCode).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
 
-      response.body.forEach((book: Book) => {
-        expect(book.id).toBe(authorID);
-      });
+      const filteredBooks = books.filter((book) => book.p_auth.id === id);
+
+      expect(response.body).toEqual(filteredBooks);
     });
   });
+});
 
-  describe("GET /books/:id", () => {
-    const new_author = new Author("will", "bio", "bday", "scifi");
-    const new_book = new Book(
-      "book",
-      "subtitle",
-      "4/5/24",
-      ["t1", "t2"],
-      new_author,
-    );
-    authors.push(new_author);
-    books.push(new_book);
+describe("GET /books/:id", () => {
+  it("returns book filtered by id", async () => {
+    const id = books[0].id;
+    const response = await request(app).get(`/books/${id}`);
 
-    it("returns book details filtered by book's id", async () => {
-      const found_book = books.find((book) => book.title === new_book.title);
-      let bookID = null;
-      if (found_book) bookID = found_book.id;
-      else return;
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(books[0]);
+  });
+});
 
-      const response = await request(app).get(`/books/${bookID}`);
+describe("PATCH /books/:id", () => {
+  it("updates book and returns updated object", async () => {
+    const id = books[0].id;
+    const fields = {
+      title: "patched title",
+      subtitle: "patched sub title",
+      org_pub_date: "patched pub date",
+      tags: ["patched tag"],
+    };
 
-      expect(response.statusCode).toBe(200);
-      expect(response.body).toEqual({ new_book });
-    });
+    const response = await request(app).patch(`/books/${id}`).send(fields);
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject(fields);
   });
 });

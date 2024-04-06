@@ -4,7 +4,7 @@ import * as book_controller from "../controllers/bookController";
 import editionRouter from "./editions";
 
 const router: Router = express.Router();
-router.use("/:bookID/collections", editionRouter);
+router.use("/:bookID/editions", editionRouter);
 
 router.post("/", book_controller.add_book);
 router.get("/", book_controller.list_all_books);
