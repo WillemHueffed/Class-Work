@@ -22,7 +22,7 @@ describe("Edition Router", () => {
       authors.push(author);
       books.push(book);
     }
-    for (let i = 1; i < books.length / 2; i++) {
+    for (let i = 0; i < books.length; i++) {
       for (let j = 1; j < 4; j++) {
         const edition: Edition = new Edition(j, `date${j}`);
         books[i].editions.push(edition);

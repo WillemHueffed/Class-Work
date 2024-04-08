@@ -13,5 +13,5 @@ Y X 9. Update any of the attributes of a specific book => patch books/book_id
 Y X 10. Remove a book (and by extension all its editions) => delete books/bood_id
 
 Y X 11. Add an edition of a specific book => post books/bood_id/editions
-X 12. List editions of a specific book => get books/bood_id/editions
-X 13. Remove an edition of a specific book => delete books/book_id/editions/edition_id
+Y X 12. List editions of a specific book => get books/bood_id/editions
+Y X 13. Remove an edition of a specific book => delete books/book_id/editions/edition_id
