@@ -64,14 +64,6 @@ export const get_book_details = (req: Request, res: Response): void => {
   res.status(200).json(book);
 };
 
-interface PatchReqBody {
-  title?: string;
-  subtitle?: string;
-  org_pub_date?: string;
-  tags?: string[];
-  p_auth?: Author;
-}
-
 export const update_book_attrs = (req: Request, res: Response): void => {
   const id = req.params.id as string;
   const { title, subtitle, org_pub_date, tags, p_auth } = req.body;
@@ -99,17 +91,21 @@ export const update_book_attrs = (req: Request, res: Response): void => {
   }
 
   res.status(200).send(book);
+  return;
 };
 
 export const delete_book = (req: Request, res: Response): void => {
-  const id = req.params.id;
+  const id = req.params.id as string;
+  if (!id) {
+    res.status(400);
+    return;
+  }
   const index = books.findIndex((book) => book.id === id);
   if (index === -1) {
-    res.status(404).json({ error: "Book not found" });
+    res.status(404).json({ error: "Edition not found" });
     return;
   }
   books.splice(index, 1);
 
-  res.status(204);
-  return;
+  res.status(204).end();
 };

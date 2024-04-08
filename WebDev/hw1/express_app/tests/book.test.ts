@@ -104,13 +104,13 @@ describe("PATCH /books/:id", () => {
     expect(response.statusCode).toBe(200);
     expect(response.body).toMatchObject(fields);
   });
+});
 
-  describe("DELETE /books/:id", () => {
-    it("deletes target book", async () => {
-      const id = books[0].id;
-      const response = await request(app).delete(`/books/${id}`);
-      expect(response.statusCode).toBe(204);
-      expect(books[0].id).not.toBe(id);
-    });
+describe("DELETE /books/:id", () => {
+  it("deletes target book", async () => {
+    const id = books[0].id;
+    const response = await request(app).delete(`/books/${id}`);
+    expect(response.statusCode).toBe(204);
+    expect(books[0].id).not.toBe(id);
   });
 });
