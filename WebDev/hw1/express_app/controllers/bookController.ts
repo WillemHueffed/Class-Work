@@ -53,7 +53,7 @@ export const list_books_by_author = (req: Request, res: Response): void => {
 export const get_book_details = (req: Request, res: Response): void => {
   const id = req.params.id;
   if (!id) {
-    res.status(400).json({ error: "Please provide an author id" });
+    res.status(400).json({ error: "Please provide an authorID" });
     return;
   }
   const book = books.find((book) => book.id === id);

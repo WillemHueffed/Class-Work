@@ -21,6 +21,10 @@ export const list_authors = (req: Request, res: Response): void => {
 
 export const update_author_bio = (req: Request, res: Response): void => {
   const authorID = req.params.authorID;
+  if (!authorID) {
+    res.status(400).json({ error: "Please provide an authorID" });
+    return;
+  }
   const { bio } = req.body;
   const author = authors.find((author) => author.id === authorID);
   if (!author) {

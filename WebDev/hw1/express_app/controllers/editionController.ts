@@ -3,14 +3,17 @@ import { books, Edition } from "../data";
 
 export const add_edition = (req: Request, res: Response): void => {
   const bookID = req.params.bookID;
-  const book = books.find((book) => book.id === bookID);
-  if (!book) {
-    res.status(404).json({ error: "Book not found" });
-    return;
+  if (!bookID) {
+    res.status(400).json({ error: "Please provide a bookID" });
   }
   const { ed_num, pub_date } = req.body;
   if (!ed_num || !pub_date) {
     res.status(400).send({ error: "Please provide an ed_num and pub_date" });
+    return;
+  }
+  const book = books.find((book) => book.id === bookID);
+  if (!book) {
+    res.status(404).json({ error: "Book not found" });
     return;
   }
   const edition = new Edition(ed_num, pub_date);
@@ -21,6 +24,9 @@ export const add_edition = (req: Request, res: Response): void => {
 
 export const list_editions = (req: Request, res: Response): void => {
   const bookID = req.params.bookID;
+  if (!bookID) {
+    res.status(400).json({ error: "Please provide a bookID" });
+  }
   const book = books.find((book) => book.id === bookID);
   if (!book) {
     res.status(404).json({ error: "Book not found" });
@@ -34,12 +40,11 @@ export const list_editions = (req: Request, res: Response): void => {
 export const delete_edition = (req: Request, res: Response): void => {
   const bookID = req.params.bookID as string;
   if (!bookID) {
-    res.status(400).send({ error: "bookID not present" });
-    return;
+    res.status(400).json({ error: "Please provide a bookID" });
   }
   const editionID = req.params.editionID as string;
   if (!editionID) {
-    res.status(400).send({ error: "editionID not present" });
+    res.status(400).send({ error: "Please provide an editionID" });
     return;
   }
   const book = books.find((book) => book.id === bookID);
