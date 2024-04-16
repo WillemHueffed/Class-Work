@@ -57,4 +57,28 @@ class Edition {
 const authors: Author[] = [];
 const books: Book[] = [];
 
+for (let i = 1; i < 5; i++) {
+  const author: Author = new Author(
+    `name${i}`,
+    `bio${i}`,
+    `bday${i}`,
+    `genre${i}`,
+  );
+  const book: Book = new Book(
+    `book${i}`,
+    `sub${i}`,
+    `pub${i}`,
+    [`tag${i}`],
+    author,
+  );
+  authors.push(author);
+  books.push(book);
+}
+for (let i = 0; i < books.length; i++) {
+  for (let j = 1; j < 4; j++) {
+    const edition: Edition = new Edition(j, `date${j}`);
+    books[i].editions.push(edition);
+  }
+}
+
 export { Author, Book, Edition, authors, books };

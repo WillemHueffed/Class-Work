@@ -1,18 +1,23 @@
 // src/index.ts
+// https://manage.auth0.com/dashboard/us/dev-7qw8fvj8e40n61ha/
 import { UUID } from "bson";
 import { MongoClient, ServerApiVersion, Db } from "mongodb";
 import express from "express";
 import reviewRouter from "./routes/reviews";
 import { auth } from "express-openid-connect";
+import dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 const port = 3001;
+console.log(process.env.AUTH0_BASEURL);
 
 const config = {
   authRequired: false,
   auth0Logout: true,
   secret: "X2ikQTGCxgGZf5_6XozZFL-iSi-DAQtAY48PO4xRsnZywboYZY9uk72bYrHUqois",
-  baseURL: "http://localhost:3001",
+  baseURL: process.env.AUTH0_BASEURL,
+  //baseURL: "http://localhost:3001",
   clientID: "TtqkDALr7skNQZykdGPp2e4UO03E7LNt",
   issuerBaseURL: "https://dev-7qw8fvj8e40n61ha.us.auth0.com",
 };
