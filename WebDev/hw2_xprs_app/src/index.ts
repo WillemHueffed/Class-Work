@@ -1,4 +1,5 @@
 // src/index.ts
+import { auth } from "express-oauth2-jwt-bearer";
 import { UUID } from "bson";
 import { MongoClient, ServerApiVersion, Db } from "mongodb";
 import express from "express";
@@ -46,4 +47,15 @@ app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
 
-export { mongoClient, mongoDB };
+//const authConfig = {
+//  domain: process.env.AUTH0_DOMAIN,
+//  audience: process.env.AUTH0_AUDIENCE,
+//};
+
+const checkJWT = auth({
+  audience: "ReviewAPI",
+  issuerBaseURL: "https://dev-l8p184x0ovlzprpt.us.auth0.com/",
+});
+app.use(checkJWT);
+
+export { mongoClient, mongoDB, app, checkJWT };
