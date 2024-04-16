@@ -15,22 +15,20 @@ console.log(process.env.AUTH0_BASEURL);
 const config = {
   authRequired: false,
   auth0Logout: true,
-  secret: "X2ikQTGCxgGZf5_6XozZFL-iSi-DAQtAY48PO4xRsnZywboYZY9uk72bYrHUqois",
+  secret: process.env.AUTH0_SECRET,
   baseURL: process.env.AUTH0_BASEURL,
-  //baseURL: "http://localhost:3001",
-  clientID: "TtqkDALr7skNQZykdGPp2e4UO03E7LNt",
-  issuerBaseURL: "https://dev-7qw8fvj8e40n61ha.us.auth0.com",
+  clientID: process.env.AUTH0_CLIENTID,
+  issuerBaseURL: process.env.AUTH0_ISSUERBASEURL,
 };
 app.use(auth(config));
 app.get("/", (req, res) => {
   res.send(req.oidc.isAuthenticated() ? "Logged in" : "Logged out");
 });
 
-const uri =
-  "mongodb+srv://whueffed:whueffed@webdev.nque75t.mongodb.net/?retryWrites=true&w=majority&appName=WebDev";
+const uri = process.env.MONGO_URI;
 let mongoDB: Db;
 
-const mongoClient = new MongoClient(uri, {
+const mongoClient = new MongoClient(uri as string, {
   pkFactory: { createPk: () => new UUID().toBinary() },
   serverApi: {
     version: ServerApiVersion.v1,
