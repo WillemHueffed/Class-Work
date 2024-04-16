@@ -1,26 +1,41 @@
 // src/index.ts
-import { MongoClient } from "mongodb";
+import { UUID } from "bson";
+import { MongoClient, ServerApiVersion, Db } from "mongodb";
 import express from "express";
 import reviewRouter from "./routes/reviews";
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
-const mongo_url = "mongodb://localhost:27017";
-const dbName = "my_db";
+const uri =
+  "mongodb+srv://whueffed:whueffed@webdev.nque75t.mongodb.net/?retryWrites=true&w=majority&appName=WebDev";
+let mongoDB: Db;
 
-async function connectToMongo() {
+const mongoClient = new MongoClient(uri, {
+  pkFactory: { createPk: () => new UUID().toBinary() },
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
+async function run() {
   try {
-    await dbClient.connect();
-    console.log("Connected to MongoDB server");
-  } catch (error) {
-    console.error("Error connecting to MongoDB:", error);
+    // Connect the client to the server	(optional starting in v4.7)
+    await mongoClient.connect();
+    // Send a ping to confirm a successful connection
+    await mongoClient.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!",
+    );
+    mongoDB = mongoClient.db("WebDev");
+  } finally {
+    // Ensures that the client will close when you finish/error
+    //await mongoClient.close();
+    //console.log("client closed");
   }
 }
-
-const dbClient = new MongoClient(mongo_url);
-connectToMongo();
-const database = dbClient.db(dbName);
+run().catch(console.dir);
 
 app.use("/reviews", reviewRouter);
 app.get("/", (req, res) => {
@@ -31,16 +46,4 @@ app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
 
-// Close db connection on process termination
-process.on("SIGINT", async () => {
-  try {
-    await dbClient.close();
-    console.log("Disconnected from MongoDB");
-    process.exit(0);
-  } catch (error) {
-    console.error("Error closing MongoDB connection:", error);
-    process.exit(1);
-  }
-});
-
-export { database };
+export { mongoClient, mongoDB };
