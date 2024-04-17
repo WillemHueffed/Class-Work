@@ -28,7 +28,7 @@ typedef struct {
 } HttpRequest;
 
 void mmap_file(const char *, char **);
-void alloc_http_msg(char **msg, char *status, int content_length);
+void alloc_http_msg(char **msg, char *, char *status, int content_length);
 void parse_http_request(const char *, HttpRequest *);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
@@ -145,6 +145,7 @@ void childProcess(int sockfd, int new_fd) {
     exit(1);
   }
 
+  // Get incoming HTTP req
   char *incoming_msg = malloc(1000);
   int numbytes = 0;
   char *end_of_hdr;
@@ -169,36 +170,35 @@ void childProcess(int sockfd, int new_fd) {
   }
   printf("The incoming msg is:\n%s===============\n", incoming_msg);
 
+  // Parse HTTP req
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
-  // printf("req:\n%s\n%s\n%s\n", req.path, req.method, req.version);
 
-  // printf("in child process\n");
+  // Form HTTP resp (for static content)
   char *file;
   mmap_file(req.path, &file);
   // printf("the mmaped file is:\n%s", file);
   char *hdr;
   int body_len = strlen(file);
   char *status = "200 OK";
-  alloc_http_msg(&hdr, status, body_len);
-  char *msg = malloc(sizeof(file) + sizeof(hdr) + 1);
-  // TODO: Check return vals
-  strcpy(msg, hdr);
-  strcat(msg, file);
-  // printf("the msg is:\n%s", msg);
+  char *http_resp;
+  alloc_http_msg(&http_resp, file, status, body_len);
 
+  // Send resp
   int bytes_sent = 0;
-  printf("%s", msg);
-  int msg_length = strlen(msg);
+  printf("%s", http_resp);
+  int msg_length = strlen(http_resp);
 
   while (bytes_sent < msg_length) {
-    int x = send(new_fd, msg + bytes_sent, msg_length - bytes_sent, 0);
+    int x = send(new_fd, http_resp + bytes_sent, msg_length - bytes_sent, 0);
     if (x == -1 || x == 0) {
       perror("send");
       exit(1);
     }
     bytes_sent += x;
   }
+
+  // Close junk out
   if (close(new_fd) == -1) {
     perror("close");
     exit(1);
@@ -228,7 +228,8 @@ void parse_http_request(const char *request_str, HttpRequest *request) {
 }
 
 // TODO: This most definetly has memory leaks
-void alloc_http_msg(char **msg, char *status, int content_length) {
+void alloc_http_msg(char **http_resp, char *body, char *status,
+                    int content_length) {
   char *header = (char *)malloc(1000);
   const char *date = "4/16/24";
   const char *content_type = "text/html";
@@ -241,7 +242,10 @@ void alloc_http_msg(char **msg, char *status, int content_length) {
            "Server: cpsc4510 web server 1.0\r\n"
            "\r\n",
            status, date, content_length, content_type);
-  *msg = strdup(header);
+  *http_resp = malloc(sizeof(header) + sizeof(body) + 1);
+  // TODO: Check return vals
+  strcpy(*http_resp, header);
+  strcat(*http_resp, body);
   // printf("header msg\n");
   // printf("%s", *msg);
 }
@@ -252,12 +256,10 @@ void mmap_file(const char *path, char **mapped) {
   struct stat sb;
   fd = open(path, O_RDONLY);
   if (fd == -1) {
-    printf("file open");
     perror("file open");
     exit(1);
   }
   if (fstat(fd, &sb) == -1) {
-    printf("fstat");
     perror("fstat");
     close(fd);
     exit(1);
@@ -265,7 +267,6 @@ void mmap_file(const char *path, char **mapped) {
 
   *mapped = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (*mapped == MAP_FAILED) {
-    printf("mmap failed");
     perror("mmap");
     close(fd);
     exit(1);
