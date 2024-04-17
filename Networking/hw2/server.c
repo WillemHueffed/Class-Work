@@ -6,7 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/fcntl.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -24,6 +27,7 @@ typedef struct {
   char version[MAX_VERSION_LEN];
 } HttpRequest;
 
+void mmap_file(const char *, char **);
 int parse_http_request(const char *, HttpRequest *);
 void alloc_http_msg(char **);
 void sigchld_handler(int);
@@ -142,8 +146,18 @@ void childProcess(int sockfd, int new_fd) {
   }
 
   printf("in child process\n");
-  char *msg;
-  alloc_http_msg(&msg);
+  char *file;
+  char *file_path = "page1.html";
+  mmap_file(file_path, &file);
+  printf("the mmaped file is:\n%s", file);
+  char *hdr;
+  alloc_http_msg(&hdr);
+  char *msg = malloc(sizeof(file) + sizeof(hdr) + 1);
+  // TODO: Check return vals
+  strcpy(msg, hdr);
+  strcat(msg, file);
+  printf("the msg is:\n%s", msg);
+
   int bytes_sent = 0;
   printf("%s", msg);
   int msg_length = strlen(msg);
@@ -158,6 +172,11 @@ void childProcess(int sockfd, int new_fd) {
   }
   if (close(new_fd) == -1) {
     perror("close");
+    exit(1);
+  }
+  if (munmap(file, strlen(file)) == -1) {
+    printf("munmap\n");
+    perror("munmap");
     exit(1);
   }
   exit(0);
@@ -193,11 +212,38 @@ void alloc_http_msg(char **msg) {
            "Connection: close\r\n"
            "Date: %s\r\n"
            "Content-Length: %d\r\n"
-           "Content-Type: %sr\n"
+           "Content-Type: %s\r\n"
            "Server: cpsc4510 web server 1.0\r\n"
            "\r\n",
            status, date, content_length, content_type);
   *msg = strdup(header);
   // printf("header msg\n");
   // printf("%s", *msg);
+}
+
+void mmap_file(const char *path, char **mapped) {
+  int fd;
+  struct stat sb;
+  fd = open(path, O_RDONLY);
+  if (fd == -1) {
+    printf("file open");
+    perror("file open");
+    exit(1);
+  }
+  if (fstat(fd, &sb) == -1) {
+    printf("fstat");
+    perror("fstat");
+    close(fd);
+    exit(1);
+  }
+
+  *mapped = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (*mapped == MAP_FAILED) {
+    printf("mmap failed");
+    perror("mmap");
+    close(fd);
+    exit(1);
+  }
+
+  // printf("File contents:\n%s\n", (char *)*mapped);
 }
