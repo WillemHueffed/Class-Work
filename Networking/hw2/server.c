@@ -28,8 +28,8 @@ typedef struct {
 } HttpRequest;
 
 void mmap_file(const char *, char **);
-int parse_http_request(const char *, HttpRequest *);
-void alloc_http_msg(char **);
+void alloc_http_msg(char **msg, char *status, int content_length);
+void parse_http_request(const char *, HttpRequest *);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
 void setup(int *);
@@ -145,18 +145,47 @@ void childProcess(int sockfd, int new_fd) {
     exit(1);
   }
 
-  printf("in child process\n");
+  char *incoming_msg = malloc(1000);
+  int numbytes = 0;
+  char *end_of_hdr;
+  int bytes_recvd = 0;
+
+  while (1) {
+    bytes_recvd = recv(new_fd, incoming_msg, MAXDATASIZE, MSG_PEEK);
+    if (bytes_recvd < 0) {
+      perror("recv");
+      exit(1);
+    } else {
+      end_of_hdr = strstr(incoming_msg, "\r\n\r\n");
+      if (end_of_hdr != NULL) {
+        break;
+      }
+    }
+  }
+  bytes_recvd = recv(new_fd, incoming_msg, MAXDATASIZE, 0);
+  if (bytes_recvd < 0) {
+    perror("recv");
+    exit(1);
+  }
+  printf("The incoming msg is:\n%s===============\n", incoming_msg);
+
+  HttpRequest req;
+  parse_http_request(incoming_msg, &req);
+  // printf("req:\n%s\n%s\n%s\n", req.path, req.method, req.version);
+
+  // printf("in child process\n");
   char *file;
-  char *file_path = "page1.html";
-  mmap_file(file_path, &file);
-  printf("the mmaped file is:\n%s", file);
+  mmap_file(req.path, &file);
+  // printf("the mmaped file is:\n%s", file);
   char *hdr;
-  alloc_http_msg(&hdr);
+  int body_len = strlen(file);
+  char *status = "200 OK";
+  alloc_http_msg(&hdr, status, body_len);
   char *msg = malloc(sizeof(file) + sizeof(hdr) + 1);
   // TODO: Check return vals
   strcpy(msg, hdr);
   strcat(msg, file);
-  printf("the msg is:\n%s", msg);
+  // printf("the msg is:\n%s", msg);
 
   int bytes_sent = 0;
   printf("%s", msg);
@@ -182,30 +211,26 @@ void childProcess(int sockfd, int new_fd) {
   exit(0);
 }
 
-int parse_http_request(const char *request_str, HttpRequest *request) {
+void parse_http_request(const char *request_str, HttpRequest *request) {
   // Find the end of the request line
   const char *end_of_request_line = strchr(request_str, '\n');
   if (!end_of_request_line) {
     printf("Invalid request format: No end of request line found.\n");
-    return -1;
+    exit(1);
   }
 
   // Parse the request line
-  if (sscanf(request_str, "%9s %99s %9s", request->method, request->path,
+  if (sscanf(request_str, "%9s %*[/] %99s %9s", request->method, request->path,
              request->version) != 3) {
     printf("Invalid request format: Unable to parse request line.\n");
-    return -1;
+    exit(1);
   }
-
-  return 0;
 }
 
 // TODO: This most definetly has memory leaks
-void alloc_http_msg(char **msg) {
+void alloc_http_msg(char **msg, char *status, int content_length) {
   char *header = (char *)malloc(1000);
-  const char *status = "200 OK";
   const char *date = "4/16/24";
-  int content_length = 420;
   const char *content_type = "text/html";
   snprintf(header, 1000,
            "HTTP/1.1 %s\r\n"
@@ -223,6 +248,7 @@ void alloc_http_msg(char **msg) {
 
 void mmap_file(const char *path, char **mapped) {
   int fd;
+  printf("The file path is: %s\n", path);
   struct stat sb;
   fd = open(path, O_RDONLY);
   if (fd == -1) {
