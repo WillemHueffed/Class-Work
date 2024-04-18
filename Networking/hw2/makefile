@@ -17,7 +17,7 @@ OTHER_OBJS= $(OTHER_SRCS:.c=.o)
 # Executables for the server and client
 SERVER_EXEC = server 
 CLIENT_EXEC = client 
-OTHER_EXEC = fib
+OTHER_EXEC = fib.cgi
 
 # Default target
 all: $(SERVER_EXEC) $(CLIENT_EXEC) $(OTHER_EXEC)
@@ -40,5 +40,5 @@ $(OTHER_EXEC): $(OTHER_OBJS)
 # Clean up
 clean:
 	rm -f $(SERVER_EXEC) $(CLIENT_EXEC) $(OTHER_EXEC) \
-		$(SERVER_OBJS) $(CLIENT_OBJS) $(OTHER_OBJS)
+		$(SERVER_OBJS) $(CLIENT_OBJS) $(OTHER_OBJS) a.out
 

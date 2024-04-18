@@ -2,10 +2,34 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-void fibN(int n) {
+void alloc_http_msg(char **http_resp, char *body, char *status,
+                    int content_length) {
+  char *header = (char *)malloc(1000);
+  const char *date = "4/16/24";
+  const char *content_type = "text/html";
+  snprintf(header, 1000,
+           "HTTP/1.1 %s\r\n"
+           "Connection: close\r\n"
+           "Date: %s\r\n"
+           "Content-Length: %d\r\n"
+           "Content-Type: %s\r\n"
+           "Server: cpsc4510 web server 1.0\r\n"
+           "\r\n",
+           status, date, content_length, content_type);
+  *http_resp = malloc(strlen(header) + strlen(body) + 1);
+  // TODO: Check return vals
+  strcpy(*http_resp, header);
+  strcat(*http_resp, body);
+  // printf("header msg\n");
+  // printf("%s", *msg);
+}
+
+void fibN(int n, char **msg) {
   if (n < 1) {
-    printf("Error, the fib function requires n >= 1");
+    *msg = malloc(strlen("Error, the fib function requires n >= 1"));
+    strcpy(*msg, "Error, the fib function requires n >= 1");
     return;
   }
   long long x = 0;
@@ -17,7 +41,9 @@ void fibN(int n) {
     y = sum;
   }
   sum %= 1000000007;
-  printf("Fib(%d) is %lld\n", n, sum);
+  char buf[1000];
+  *msg = malloc(1000);
+  sprintf(*msg, "Fib(%d) is %lld\n", n, sum);
 }
 
 int main() {
@@ -28,12 +54,13 @@ int main() {
     return 1;
   }
   const char *result = getenv(name);
-  fibN(atoi(result));
-  if (result != NULL) {
-    printf("%s=%s\n", name, result);
-  } else {
-    printf("Environment variable %s not found\n", name);
-  }
+  char *body;
+  fibN(atoi(result), &body);
+  // TODO: Add logic to check if fibN is unhappy (n<1);
+  char *status = "200 OK";
+  char *http_resp;
+  alloc_http_msg(&http_resp, body, status, strlen(body));
+  printf("%s", http_resp);
   if (unsetenv(name) != 0) {
     perror("unsetenv");
     return 1;

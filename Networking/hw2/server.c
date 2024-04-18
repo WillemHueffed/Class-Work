@@ -174,15 +174,29 @@ void childProcess(int sockfd, int new_fd) {
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
 
-  // Form HTTP resp (for static content)
-  char *file;
-  mmap_file(req.path, &file);
-  // printf("the mmaped file is:\n%s", file);
-  char *hdr;
-  int body_len = strlen(file);
   char *status = "200 OK";
   char *http_resp;
-  alloc_http_msg(&http_resp, file, status, body_len);
+  char *hdr;
+  char *file = NULL;
+  char *args[] = {"./fib.cgi", NULL};
+  char *envp[] = {NULL};
+
+  // Check this logic. if execvp fails what gets sent to client?
+  if (!strcmp(req.path, "fib.cgi")) {
+    if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
+      perror("dup2");
+      exit(1);
+    }
+    if (execve("fib.cgi", args, envp) == -1) {
+      perror("execvp");
+      exit(1);
+    }
+  } else {
+    mmap_file(req.path, &file);
+    alloc_http_msg(&http_resp, file, status, strlen(file));
+  }
+
+  // Form HTTP resp (for static content)
 
   // Send resp
   int bytes_sent = 0;
@@ -203,7 +217,7 @@ void childProcess(int sockfd, int new_fd) {
     perror("close");
     exit(1);
   }
-  if (munmap(file, strlen(file)) == -1) {
+  if (file != NULL && munmap(file, strlen(file)) == -1) {
     printf("munmap\n");
     perror("munmap");
     exit(1);
@@ -242,7 +256,7 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
            "Server: cpsc4510 web server 1.0\r\n"
            "\r\n",
            status, date, content_length, content_type);
-  *http_resp = malloc(sizeof(header) + sizeof(body) + 1);
+  *http_resp = malloc(strlen(header) + strlen(body) + 1);
   // TODO: Check return vals
   strcpy(*http_resp, header);
   strcat(*http_resp, body);
