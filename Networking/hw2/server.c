@@ -191,6 +191,7 @@ void childProcess(int sockfd, int new_fd) {
 
   // printf("the query is: %s\n", req.query);
   char *q_string;
+  printf("req_query: %s\n", req.query);
   if (req.query) {
     q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
     strcpy(q_string, "QUERY_STRING=");

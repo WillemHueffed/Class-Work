@@ -25,6 +25,7 @@ typedef struct {
   char *params;
   int argc;
   char *version;
+  char *query;
   key_val **args;
 } HttpRequest;
 
@@ -75,6 +76,9 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   unp_args++; // get rid of / in string
 
   int argc = 1;
+  char *query = (char *)malloc(strlen(unp_args));
+  query = strdup(unp_args);
+  printf("The query is: %s\n", query);
   for (int i = 0; i < strlen(unp_args); i++) {
     if (unp_args[i] == '&')
       argc++;
@@ -102,6 +106,7 @@ void parse_http_request(char *request_str, HttpRequest *request) {
     i++;
   }
 
+  request->query = query;
   request->method = method;
   request->path = just_path;
   request->version = version;
@@ -126,6 +131,7 @@ int main() {
   printf("params: %s\n", parsed_req.params);
   printf("version: %s\n", parsed_req.version);
   printf("argc is: %d\n", parsed_req.argc);
+  printf("query is: %s\n", parsed_req.query);
   for (int i = 0; i < parsed_req.argc; i++) {
     printf("%s : %s\n", parsed_req.args[i]->key, parsed_req.args[i]->val);
   }

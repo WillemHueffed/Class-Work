@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct {
+  char *key;
+  char *val;
+} key_val;
+
 void alloc_http_msg(char **http_resp, char *body, char *status,
                     int content_length) {
   char *header = (char *)malloc(1000);
@@ -48,15 +53,52 @@ void fibN(int n, char **msg) {
 
 int main() {
   printf("Execute has been called\n");
-  char *result = getenv("QUERY_STRING");
-  printf("Extracted: %s\n", result);
+  char *unp_args = getenv("QUERY_STRING");
+  printf("unparsed args: %s\n\n", unp_args);
+
+  int argc = 1;
+  char *query = (char *)malloc(strlen(unp_args));
+  query = strdup(unp_args);
+  printf("The query is: %s\n", query);
+  for (int i = 0; i < strlen(unp_args); i++) {
+    if (unp_args[i] == '&')
+      argc++;
+  }
+  // printf("counted %d args\n", argc);
+  key_val **args = (key_val **)malloc(sizeof(key_val *) * argc + 1);
+  args[argc] = NULL;
+
+  int i = 0;
+  for (char *tok = strtok(unp_args, "&"); tok != NULL;
+       tok = strtok(NULL, "&")) {
+    // printf("Token: %s\n", tok);
+    // printf("strlen(tok) = %d\n", (int)strlen(tok));
+    char *del_pos = strchr(tok, '=');
+    int kl = del_pos - tok;
+    char *key = (char *)malloc(kl + 1);
+    key[kl] = '\0';
+    // char *val = (char *)malloc(strlen(tok) - kl + 1);
+    char *val = strdup(tok + kl + 1);
+    strncpy(key, tok, kl);
+    strncpy(val, tok + kl, strlen(key) - kl);
+    args[i] = (key_val *)malloc(sizeof(key_val));
+    args[i]->key = key;
+    args[i]->val = val;
+    i++;
+  }
+
+  for (int i = 0; i < argc; i++) {
+    printf("%s : %s\n", args[i]->key, args[i]->val);
+  }
+
+  printf("Extracted: %s\n", unp_args);
   char *body;
-  fibN(atoi(result), &body);
+  fibN(atoi(unp_args), &body);
   // TODO: Add logic to check if fibN is unhappy (n<1);
   char *status = "200 OK";
   char *http_resp;
   // alloc_http_msg(&http_resp, body, status, strlen(body));
-  alloc_http_msg(&http_resp, result, status, strlen(body));
+  alloc_http_msg(&http_resp, unp_args, status, strlen(body));
   printf("%s", http_resp);
   if (unsetenv("QUERY_STRING") != 0) {
     perror("unsetenv");
