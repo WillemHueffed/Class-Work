@@ -40,7 +40,7 @@ typedef struct {
 void parse_http_request(char *request_str, HttpRequest *request);
 void getHTTPReq(int fd, char **req);
 void doChildProcess(int fd, char **args, char **envp);
-void mmap_file(const char *, char **);
+int mmap_file(const char *, char **);
 void alloc_http_msg(char **msg, char *, char *status, int content_length);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
@@ -196,7 +196,17 @@ void serve_static(int fd, HttpRequest *req) {
   char *http_resp;
   char *status = "200 OK";
   char *file;
-  mmap_file(req->path, &file);
+  int ret_val = mmap_file(req->path, &file);
+  if (ret_val != 0) {
+    if (ret_val == 1) {
+      status = "404";
+      file = "error file not found\n";
+    }
+    if (ret_val == 2) {
+      status = "500";
+      file = "internal server error\n";
+    }
+  }
   alloc_http_msg(&http_resp, file, status, strlen(file));
 
   // Form HTTP resp (for static content)
@@ -220,7 +230,7 @@ void serve_static(int fd, HttpRequest *req) {
     perror("close");
     exit(1);
   }
-  if (file != NULL && munmap(file, strlen(file)) == -1) {
+  if (!ret_val && file != NULL && munmap(file, strlen(file)) == -1) {
     printf("munmap\n");
     perror("munmap");
     exit(1);
@@ -250,28 +260,28 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // printf("%s", *msg);
 }
 
-void mmap_file(const char *path, char **mapped) {
+int mmap_file(const char *path, char **mapped) {
   int fd;
   struct stat sb;
   fd = open(path, O_RDONLY);
   if (fd == -1) {
     perror("file open");
-    exit(1);
+    return 1;
   }
   if (fstat(fd, &sb) == -1) {
     perror("fstat");
     close(fd);
-    exit(1);
+    return 2;
   }
 
   *mapped = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (*mapped == MAP_FAILED) {
     perror("mmap");
     close(fd);
-    exit(1);
+    return 3;
   }
 
-  // printf("File contents:\n%s\n", (char *)*mapped);
+  return 0;
 }
 
 void parse_http_request(char *request_str, HttpRequest *request) {
