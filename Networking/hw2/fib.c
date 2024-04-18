@@ -67,12 +67,10 @@ int main() {
   int argc = 1;
   char *query = (char *)malloc(strlen(unp_args));
   query = strdup(unp_args);
-  printf("The query is: %s\n", query);
   for (int i = 0; i < strlen(unp_args); i++) {
     if (unp_args[i] == '&')
       argc++;
   }
-  // printf("counted %d args\n", argc);
   key_val **args = (key_val **)malloc(sizeof(key_val *) * argc + 1);
   args[argc] = NULL;
 
@@ -93,6 +91,16 @@ int main() {
     args[i]->key = key;
     args[i]->val = val;
     i++;
+  }
+
+  if (argc != 2) {
+    char *e_msg = "error only 2 args allowed\n";
+    char *status = "200 OK";
+    char *http_resp;
+    // alloc_http_msg(&http_resp, body, status, strlen(body));
+    alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
+    printf("%s", http_resp);
+    exit(1);
   }
 
   char *body;
