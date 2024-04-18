@@ -14,7 +14,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define PORT "10485"
+// #define PORT "10485"
+#define PORT "10486"
 #define BACKLOG 20
 #define MAXDATASIZE 1000
 #define MAX_METHOD_LEN 10
@@ -66,12 +67,46 @@ int main() {
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr),
               s, sizeof s);
 
-    if (!fork()) {
-      childProcess(sockfd, new_fd);
+    /*
+     */
+    char *incoming_msg;
+    getHTTPReq(new_fd, &incoming_msg);
+
+    // Parse HTTP req
+    HttpRequest req;
+    parse_http_request(incoming_msg, &req);
+
+    // char *http_resp;
+    // char *hdr;
+    char *file = NULL;
+    char *args[] = {"./fib.cgi", NULL};
+    char *q_string;
+    if (req.query != NULL) {
+      printf("test\n");
+      printf("req.query=%s\n", req.query);
+      // This is causing the seg fault -> but why????
+      q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
+      strcpy(q_string, "QUERY_STRING=");
+      strcat(q_string, req.query);
+    } else {
+      q_string = "QUERY_STRING=NULL";
     }
+    char *envp[] = {q_string, NULL};
+    if (!strcmp(req.path, "fib.cgi")) {
+      if (!fork()) {
+        if (close(sockfd) == -1) {
+          perror("close");
+          exit(1);
+        }
+        doChildProcess(new_fd, args, envp);
+      }
+    } else {
+      serve_static(new_fd, &req);
+    }
+
     close(new_fd);
   }
-
+  printf("exiting\n");
   return 0;
 }
 
@@ -152,39 +187,9 @@ void setup(int *sockfd) {
 }
 
 void childProcess(int sockfd, int new_fd) {
-  if (close(sockfd) == -1) {
-    perror("close");
-    exit(1);
-  }
-
-  char *incoming_msg;
-  getHTTPReq(new_fd, &incoming_msg);
-
-  // Parse HTTP req
-  HttpRequest req;
-  parse_http_request(incoming_msg, &req);
-
-  // char *http_resp;
-  // char *hdr;
-  char *file = NULL;
-  char *args[] = {"./fib.cgi", NULL};
-  char *q_string;
-  if (req.query) {
-    q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
-    strcpy(q_string, "QUERY_STRING=");
-    strcat(q_string, req.query);
-  } else {
-    q_string = "QUERY_STRING=NULL";
-  }
-  char *envp[] = {q_string, NULL};
-
   // Check this logic. if execvp fails what gets sent to client?
   // printf("req path is: %s\n", req.path);
   // this is where fork should occur
-  if (!strcmp(req.path, "fib.cgi")) {
-    doChildProcess(new_fd, args, envp);
-  }
-  serve_static(new_fd, &req);
 }
 
 void serve_static(int fd, HttpRequest *req) {
@@ -220,7 +225,6 @@ void serve_static(int fd, HttpRequest *req) {
     perror("munmap");
     exit(1);
   }
-  exit(0);
 }
 
 // TODO: This most definetly has memory leaks
@@ -306,6 +310,7 @@ void parse_http_request(char *request_str, HttpRequest *request) {
     // later
     request->path = ++path;
     request->version = version;
+    request->query = NULL;
     return;
   }
 
