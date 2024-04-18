@@ -25,6 +25,8 @@ typedef struct {
   char method[MAX_METHOD_LEN];
   char path[MAX_PATH_LEN];
   char version[MAX_VERSION_LEN];
+  char **params;
+  int param_count;
 } HttpRequest;
 
 void mmap_file(const char *, char **);
@@ -173,6 +175,9 @@ void childProcess(int sockfd, int new_fd) {
   // Parse HTTP req
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
+  for (int i = 0; i < req.param_count; i++) {
+    printf("%s\n", req.params[i]);
+  }
 
   char *status = "200 OK";
   char *http_resp;
@@ -234,10 +239,52 @@ void parse_http_request(const char *request_str, HttpRequest *request) {
   }
 
   // Parse the request line
+  printf("The req string is: %s\n", request_str);
   if (sscanf(request_str, "%9s %*[/] %99s %9s", request->method, request->path,
              request->version) != 3) {
     printf("Invalid request format: Unable to parse request line.\n");
     exit(1);
+  }
+  // Check if the request path contains query parameters
+  printf("The recognized path is: %s\n", request->path);
+  char *query_start = strchr(request->path, '?');
+  printf("query start: %s\n", query_start);
+  if (query_start) {
+    char params_str[1000];
+    // Extract query parameters
+    strcpy(params_str, query_start + 1);
+
+    char *param;
+    int param_count = 0;
+    // Count the number of parameters
+    for (param = strtok(params_str, "&"); param; param = strtok(NULL, "&")) {
+      param_count++;
+    }
+    printf("The number of params is: %d\n", param_count);
+    // Allocate memory for params array
+    request->params = malloc(param_count * sizeof(char *));
+    if (request->params == NULL) {
+      printf("Memory allocation failed.\n");
+      exit(1);
+    }
+    // Extract and store each parameter
+    int i = 0;
+    for (param = strtok(params_str, "&"); param; param = strtok(NULL, "&")) {
+      request->params[i] = strdup(param);
+      printf("duplicated param %s -> %s", param, request->params[i]);
+      if (request->params[i] == NULL) {
+        printf("Memory allocation failed.\n");
+        exit(1);
+      }
+      i++;
+    }
+    request->param_count = param_count;
+    // Remove query parameters from the path
+    *query_start = '\0';
+  } else {
+    // No query parameters found
+    request->params = NULL;
+    request->param_count = 0;
   }
 }
 

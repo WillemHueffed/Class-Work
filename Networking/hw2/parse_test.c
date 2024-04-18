@@ -12,54 +12,121 @@
 #define MAX_METHOD_LEN 10
 #define MAX_PATH_LEN 100
 #define MAX_VERSION_LEN 10
+#define MAX_PARAM_LEN 1000
 
 typedef struct {
-  char method[MAX_METHOD_LEN];
-  char path[MAX_PATH_LEN];
-  char version[MAX_VERSION_LEN];
+  char *key;
+  char *val;
+} key_val;
+
+typedef struct {
+  char *method;
+  char *path;
+  char *params;
+  int argc;
+  char *version;
+  key_val **args;
 } HttpRequest;
 
-int parse_http_request(const char *request_str, HttpRequest *request) {
-  // Find the end of the request line
+void parse_http_request(char *request_str, HttpRequest *request) {
+  char *method;
+  char *path;
+  char *version;
+
   const char *end_of_request_line = strchr(request_str, '\n');
   if (!end_of_request_line) {
     printf("Invalid request format: No end of request line found.\n");
-    return -1;
+    exit(1);
   }
 
-  // Parse the request line
-  if (sscanf(request_str, "%9s %99s %9s", request->method, request->path,
-             request->version) != 3) {
-    printf("Invalid request format: Unable to parse request line.\n");
-    return -1;
+  int spc_count = 0;
+  const char *cr = strpbrk(request_str, "\r\n");
+  if (!cr) {
+    printf("malformed: no \\r\\n found\n");
+  }
+  for (int i = 0; i < cr - request_str; i++) {
+    if (request_str[i] == ' ')
+      spc_count++;
+  }
+  if (spc_count != 2) {
+    printf("malformed request");
   }
 
-  return 0;
+  method = strtok(request_str, " ");
+  path = strtok(NULL, " ");
+  version = strtok(NULL, "\r\n");
+
+  const char *params_check = strchr(path, '?');
+
+  if (!params_check) {
+    request->method = method;
+    request->path = path;
+    request->version = version;
+    return;
+  }
+
+  char *del = strchr(path, '?');
+  int len = del - path;
+  char *just_path = (char *)malloc(len + 1);
+  strncpy(just_path, path, len);
+
+  char *unp_args = (char *)malloc(strlen(path) - len + 1);
+  strncpy(unp_args, path + len, strlen(path) - len);
+  unp_args++; // get rid of / in string
+
+  int argc = 1;
+  for (int i = 0; i < strlen(unp_args); i++) {
+    if (unp_args[i] == '&')
+      argc++;
+  }
+  // printf("counted %d args\n", argc);
+  key_val **args = (key_val **)malloc(sizeof(key_val *) * argc + 1);
+  args[argc] = NULL;
+
+  int i = 0;
+  for (char *tok = strtok(unp_args, "&"); tok != NULL;
+       tok = strtok(NULL, "&")) {
+    // printf("Token: %s\n", tok);
+    // printf("strlen(tok) = %d\n", (int)strlen(tok));
+    char *del_pos = strchr(tok, '=');
+    int kl = del_pos - tok;
+    char *key = (char *)malloc(kl + 1);
+    key[kl] = '\0';
+    // char *val = (char *)malloc(strlen(tok) - kl + 1);
+    char *val = strdup(tok + kl + 1);
+    strncpy(key, tok, kl);
+    strncpy(val, tok + kl, strlen(key) - kl);
+    args[i] = (key_val *)malloc(sizeof(key_val));
+    args[i]->key = key;
+    args[i]->val = val;
+    i++;
+  }
+
+  request->method = method;
+  request->path = just_path;
+  request->version = version;
+  request->args = args;
+  request->argc = argc;
 }
 
 int main() {
-  const char *req = "GET index.html HTTP/1.1\r\n"
-                    "Host: cs2.seattleu.edu\r\n"
-                    "\r\n";
-  HttpRequest parsed_req;
-  parse_http_request(req, &parsed_req);
-  // printf("method: %s\npath: %s\nversion: %s\n", parsed_req.method,
-  //      parsed_req.path, parsed_req.version);
 
-  char *header;
-  header = (char *)malloc(1000);
-  const char *status = "200 OK";
-  const char *date = "4/16/24";
-  int content_length = 420;
-  const char *content_type = "text/html";
-  snprintf(header, 1000,
-           "HTTP/1.1 %s\r\n"
-           "Connection: close\r\n"
-           "Date: %s\r\n"
-           "Content-Length: %d\r\n"
-           "Content-Type: %sr\n"
-           "Server: cpsc4510 web server 1.0\r\n"
-           "\r\n",
-           status, date, content_length, content_type);
-  printf("%s", header);
+  char req[] = "GET /fib.cgi?x=1&y=2&zhu=hello HTTP/1.1\r\n"
+               "Host: cs2.seattleu.edu\r\n"
+               "\r\n";
+
+  char req1[] = "GET /fib.cgi HTTP/1.1\r\n"
+                "Host: cs2.seattleu.edu\r\n"
+                "\r\n";
+  HttpRequest parsed_req;
+  parse_http_request(req1, &parsed_req);
+
+  printf("path: %s\n", parsed_req.path);
+  printf("method: %s\n", parsed_req.method);
+  printf("params: %s\n", parsed_req.params);
+  printf("version: %s\n", parsed_req.version);
+  printf("argc is: %d\n", parsed_req.argc);
+  for (int i = 0; i < parsed_req.argc; i++) {
+    printf("%s : %s\n", parsed_req.args[i]->key, parsed_req.args[i]->val);
+  }
 }
