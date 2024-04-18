@@ -37,12 +37,14 @@ typedef struct {
 } HttpRequest;
 
 void parse_http_request(char *request_str, HttpRequest *request);
+void doChildProcess(int fd, char **args, char **envp);
 void mmap_file(const char *, char **);
 void alloc_http_msg(char **msg, char *, char *status, int content_length);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
 void setup(int *);
 void childProcess(int, int);
+void serve_static(int fd, char *file, HttpRequest *req);
 
 int main() {
   int sockfd, new_fd;
@@ -159,7 +161,6 @@ void childProcess(int sockfd, int new_fd) {
   int numbytes = 0;
   char *end_of_hdr;
   int bytes_recvd = 0;
-
   while (1) {
     bytes_recvd = recv(new_fd, incoming_msg, MAXDATASIZE, MSG_PEEK);
     if (bytes_recvd < 0) {
@@ -177,21 +178,15 @@ void childProcess(int sockfd, int new_fd) {
     perror("recv");
     exit(1);
   }
-  // printf("The incoming msg is:\n%s===============\n", incoming_msg);
 
   // Parse HTTP req
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
-
-  char *status = "200 OK";
   char *http_resp;
   char *hdr;
   char *file = NULL;
   char *args[] = {"./fib.cgi", NULL};
-
-  // printf("the query is: %s\n", req.query);
   char *q_string;
-  // printf("req_query: %s\n", req.query);
   if (req.query) {
     q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
     strcpy(q_string, "QUERY_STRING=");
@@ -199,26 +194,22 @@ void childProcess(int sockfd, int new_fd) {
   } else {
     q_string = "QUERY_STRING=NULL";
   }
-  // printf("q_string: %s\n", q_string);
-
   char *envp[] = {q_string, NULL};
 
   // Check this logic. if execvp fails what gets sent to client?
   // printf("req path is: %s\n", req.path);
+  // this is where fork should occur
   if (!strcmp(req.path, "fib.cgi")) {
-    if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
-      perror("dup2");
-      exit(1);
-    }
-    if (execve("fib.cgi", args, envp) == -1) {
-      perror("execvp");
-      exit(1);
-    }
-    // printf("what the fuck is wrong with execute\n");
-  } else {
-    mmap_file(req.path, &file);
-    alloc_http_msg(&http_resp, file, status, strlen(file));
+    doChildProcess(new_fd, args, envp);
   }
+  serve_static(new_fd, file, &req);
+}
+
+void serve_static(int fd, char *file, HttpRequest *req) {
+  char *http_resp;
+  char *status = "200 OK";
+  mmap_file(req->path, &file);
+  alloc_http_msg(&http_resp, file, status, strlen(file));
 
   // Form HTTP resp (for static content)
 
@@ -228,7 +219,7 @@ void childProcess(int sockfd, int new_fd) {
   int msg_length = strlen(http_resp);
 
   while (bytes_sent < msg_length) {
-    int x = send(new_fd, http_resp + bytes_sent, msg_length - bytes_sent, 0);
+    int x = send(fd, http_resp + bytes_sent, msg_length - bytes_sent, 0);
     if (x == -1 || x == 0) {
       perror("send");
       exit(1);
@@ -237,7 +228,7 @@ void childProcess(int sockfd, int new_fd) {
   }
 
   // Close junk out
-  if (close(new_fd) == -1) {
+  if (close(fd) == -1) {
     perror("close");
     exit(1);
   }
@@ -274,7 +265,6 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
 
 void mmap_file(const char *path, char **mapped) {
   int fd;
-  printf("The file path is: %s\n", path);
   struct stat sb;
   fd = open(path, O_RDONLY);
   if (fd == -1) {
@@ -383,4 +373,15 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   request->version = version;
   request->args = args;
   request->argc = argc;
+}
+
+void doChildProcess(int fd, char **args, char **envp) {
+  if ((dup2(fd, 1) == -1) || (dup2(fd, 2) == -1)) {
+    perror("dup2");
+    exit(1);
+  }
+  if (execve("fib.cgi", args, envp) == -1) {
+    perror("execvp");
+    exit(1);
+  }
 }
