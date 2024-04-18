@@ -31,7 +31,7 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // printf("%s", *msg);
 }
 
-void fibN(int n, char **msg) {
+void fibN(int n, char *user, char **msg) {
   if (n < 1) {
     *msg = malloc(strlen("Error, the fib function requires n >= 1"));
     strcpy(*msg, "Error, the fib function requires n >= 1");
@@ -48,12 +48,15 @@ void fibN(int n, char **msg) {
   sum %= 1000000007;
   char buf[1000];
   *msg = malloc(1000);
-  sprintf(*msg, "Fib(%d) is %lld\n", n, sum);
+  sprintf(
+      *msg,
+      "%s, welcome to the CGI Program!\nThe %dth Fibonacci number is %lld.\n",
+      user, n, sum);
 }
 
 int main() {
-  // char *unp_args = getenv("QUERY_STRING");
-  char unp_args[] = "x=5&y=2";
+  char *unp_args = getenv("QUERY_STRING");
+  // char unp_args[] = "user=willem&n=8";
 
   if (!strcmp(unp_args, "NULL")) {
     char *e_msg = "error args null\n";
@@ -65,8 +68,6 @@ int main() {
     exit(1);
   }
 
-  printf("1\n");
-
   int argc = 1;
   char *query = (char *)malloc(strlen(unp_args));
   query = strdup(unp_args);
@@ -75,23 +76,11 @@ int main() {
       argc++;
   }
   key_val **args = (key_val **)malloc(sizeof(key_val *) * argc + 1);
-  printf("argc is: %d\n", argc);
   args[argc] = NULL;
 
-  printf("2\n");
-
-  printf("test: %s\n", unp_args);
-  int l = strlen(unp_args);
-  if (unp_args[l] != '\0') {
-    printf("the isn't properly terminated\n");
-  }
   int i = 0;
-  printf("unp_args: %s\n", unp_args);
-  char *x = strtok(unp_args, "&");
-  printf("split succsess\n");
   for (char *tok = strtok(unp_args, "&"); tok != NULL;
        tok = strtok(NULL, "&")) {
-    printf("token: %s\n", tok);
     // printf("Token: %s\n", tok);
     // printf("strlen(tok) = %d\n", (int)strlen(tok));
     char *del_pos = strchr(tok, '=');
@@ -107,7 +96,6 @@ int main() {
     args[i]->val = val;
     i++;
   }
-  printf("3\n");
 
   if (argc != 2) {
     char *e_msg = "error only 2 args allowed\n";
@@ -119,17 +107,17 @@ int main() {
     exit(1);
   }
 
-  printf("here1\n");
   char *n = NULL;
   char *user = NULL;
 
-  printf("here\n");
-  for (key_val **kv = args; kv != NULL; kv++) {
-    if (!strcmp((*kv)->key, "user")) {
-      user = strdup((*kv)->val);
-    }
-    if (!strcmp((*kv)->key, "n")) {
-      n = strdup((*kv)->val);
+  for (int i = 0; i < argc; i++) {
+    if (args[i] != NULL) {
+      if (!strcmp(args[i]->key, "user")) {
+        user = strdup(args[i]->val);
+      }
+      if (!strcmp(args[i]->key, "n")) {
+        n = strdup(args[i]->val);
+      }
     }
   }
 
@@ -144,12 +132,12 @@ int main() {
   }
 
   char *body;
-  fibN(atoi(unp_args), &body);
+  fibN(atoi(n), user, &body);
   // TODO: Add logic to check if fibN is unhappy (n<1);
   char *status = "200 OK";
   char *http_resp;
   // alloc_http_msg(&http_resp, body, status, strlen(body));
-  alloc_http_msg(&http_resp, unp_args, status, strlen(body));
+  alloc_http_msg(&http_resp, body, status, strlen(body));
   printf("%s", http_resp);
   if (unsetenv("QUERY_STRING") != 0) {
     perror("unsetenv");
