@@ -37,6 +37,7 @@ typedef struct {
 } HttpRequest;
 
 void parse_http_request(char *request_str, HttpRequest *request);
+void getHTTPReq(int fd, char **req);
 void doChildProcess(int fd, char **args, char **envp);
 void mmap_file(const char *, char **);
 void alloc_http_msg(char **msg, char *, char *status, int content_length);
@@ -44,7 +45,7 @@ void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
 void setup(int *);
 void childProcess(int, int);
-void serve_static(int fd, char *file, HttpRequest *req);
+void serve_static(int fd, HttpRequest *req);
 
 int main() {
   int sockfd, new_fd;
@@ -156,35 +157,13 @@ void childProcess(int sockfd, int new_fd) {
     exit(1);
   }
 
-  // Get incoming HTTP req
-  char *incoming_msg = malloc(1000);
-  int numbytes = 0;
-  char *end_of_hdr;
-  int bytes_recvd = 0;
-  while (1) {
-    bytes_recvd = recv(new_fd, incoming_msg, MAXDATASIZE, MSG_PEEK);
-    if (bytes_recvd < 0) {
-      perror("recv");
-      exit(1);
-    } else {
-      end_of_hdr = strstr(incoming_msg, "\r\n\r\n");
-      if (end_of_hdr != NULL) {
-        break;
-      }
-    }
-  }
-  bytes_recvd = recv(new_fd, incoming_msg, MAXDATASIZE, 0);
-  if (bytes_recvd < 0) {
-    perror("recv");
-    exit(1);
-  }
+  char *incoming_msg;
+  getHTTPReq(new_fd, &incoming_msg);
 
   // Parse HTTP req
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
-  char *http_resp;
-  char *hdr;
-  char *file = NULL;
+
   char *args[] = {"./fib.cgi", NULL};
   char *q_string;
   if (req.query) {
@@ -202,12 +181,13 @@ void childProcess(int sockfd, int new_fd) {
   if (!strcmp(req.path, "fib.cgi")) {
     doChildProcess(new_fd, args, envp);
   }
-  serve_static(new_fd, file, &req);
+  serve_static(new_fd, &req);
 }
 
-void serve_static(int fd, char *file, HttpRequest *req) {
+void serve_static(int fd, HttpRequest *req) {
   char *http_resp;
   char *status = "200 OK";
+  char *file;
   mmap_file(req->path, &file);
   alloc_http_msg(&http_resp, file, status, strlen(file));
 
@@ -382,6 +362,31 @@ void doChildProcess(int fd, char **args, char **envp) {
   }
   if (execve("fib.cgi", args, envp) == -1) {
     perror("execvp");
+    exit(1);
+  }
+}
+
+void getHTTPReq(int fd, char **req) {
+  // Get incoming HTTP req
+  *req = malloc(1000);
+  int numbytes = 0;
+  char *end_of_hdr;
+  int bytes_recvd = 0;
+  while (1) {
+    bytes_recvd = recv(fd, *req, MAXDATASIZE, MSG_PEEK);
+    if (bytes_recvd < 0) {
+      perror("recv");
+      exit(1);
+    } else {
+      end_of_hdr = strstr(*req, "\r\n\r\n");
+      if (end_of_hdr != NULL) {
+        break;
+      }
+    }
+  }
+  bytes_recvd = recv(fd, *req, MAXDATASIZE, 0);
+  if (bytes_recvd < 0) {
+    perror("recv");
     exit(1);
   }
 }
