@@ -30,6 +30,7 @@ typedef struct {
   char *method;
   char *path;
   char *params;
+  char *query;
   int argc;
   char *version;
   key_val **args;
@@ -187,20 +188,35 @@ void childProcess(int sockfd, int new_fd) {
   char *hdr;
   char *file = NULL;
   char *args[] = {"./fib.cgi", NULL};
-  char *envp[] = {NULL};
+
+  // printf("the query is: %s\n", req.query);
+  char *q_string;
+  if (req.query) {
+    q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
+    strcpy(q_string, "QUERY_STRING=");
+    strcat(q_string, req.query);
+  } else {
+    q_string = "QUERY_STRING=NULL";
+  }
+  printf("q_string: %s\n", q_string);
+
+  char *envp[] = {q_string, NULL};
 
   // Check this logic. if execvp fails what gets sent to client?
-  printf("req path is: %s\n", req.path);
+  // printf("req path is: %s\n", req.path);
   if (!strcmp(req.path, "fib.cgi")) {
+    printf("in execute\n");
+    /*
     if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
       perror("dup2");
       exit(1);
     }
-    printf("executing fib.cgi...\n");
+    */
     if (execve("fib.cgi", args, envp) == -1) {
       perror("execvp");
       exit(1);
     }
+    printf("what the fuck is wrong with execute\n");
   } else {
     mmap_file(req.path, &file);
     alloc_http_msg(&http_resp, file, status, strlen(file));
@@ -325,7 +341,6 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   char *del = strchr(path, '?');
   int len = del - path;
   // TODO: double check this pointer arithmatic when I'm not tired af
-  printf("CALLED\n");
   char *just_path = (char *)malloc(len);
   strncpy(just_path, path + 1, len - 1);
 
@@ -334,6 +349,9 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   unp_args++; // get rid of / in string
 
   int argc = 1;
+  char *query = (char *)malloc(strlen(unp_args));
+  query = strdup(unp_args);
+  // printf("The query is: %s\n", query);
   for (int i = 0; i < strlen(unp_args); i++) {
     if (unp_args[i] == '&')
       argc++;
@@ -361,6 +379,7 @@ void parse_http_request(char *request_str, HttpRequest *request) {
     i++;
   }
 
+  request->query = query;
   request->method = method;
   request->path = just_path; // ofset to get rid of `\`
   request->version = version;

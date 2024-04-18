@@ -47,21 +47,18 @@ void fibN(int n, char **msg) {
 }
 
 int main() {
-  const char *name = "FIB_N";
-  const char *value = "5";
-  if (setenv(name, value, 1) != 0) {
-    perror("setenv");
-    return 1;
-  }
-  const char *result = getenv(name);
+  printf("Execute has been called\n");
+  char *result = getenv("QUERY_STRING");
+  printf("Extracted: %s\n", result);
   char *body;
   fibN(atoi(result), &body);
   // TODO: Add logic to check if fibN is unhappy (n<1);
   char *status = "200 OK";
   char *http_resp;
-  alloc_http_msg(&http_resp, body, status, strlen(body));
+  // alloc_http_msg(&http_resp, body, status, strlen(body));
+  alloc_http_msg(&http_resp, result, status, strlen(body));
   printf("%s", http_resp);
-  if (unsetenv(name) != 0) {
+  if (unsetenv("QUERY_STRING") != 0) {
     perror("unsetenv");
     return 1;
   }
