@@ -22,16 +22,22 @@
 #define MAX_VERSION_LEN 10
 
 typedef struct {
-  char method[MAX_METHOD_LEN];
-  char path[MAX_PATH_LEN];
-  char version[MAX_VERSION_LEN];
-  char **params;
-  int param_count;
+  char *key;
+  char *val;
+} key_val;
+
+typedef struct {
+  char *method;
+  char *path;
+  char *params;
+  int argc;
+  char *version;
+  key_val **args;
 } HttpRequest;
 
+void parse_http_request(char *request_str, HttpRequest *request);
 void mmap_file(const char *, char **);
 void alloc_http_msg(char **msg, char *, char *status, int content_length);
-void parse_http_request(const char *, HttpRequest *);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
 void setup(int *);
@@ -175,9 +181,6 @@ void childProcess(int sockfd, int new_fd) {
   // Parse HTTP req
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
-  for (int i = 0; i < req.param_count; i++) {
-    printf("%s\n", req.params[i]);
-  }
 
   char *status = "200 OK";
   char *http_resp;
@@ -187,11 +190,13 @@ void childProcess(int sockfd, int new_fd) {
   char *envp[] = {NULL};
 
   // Check this logic. if execvp fails what gets sent to client?
+  printf("req path is: %s\n", req.path);
   if (!strcmp(req.path, "fib.cgi")) {
     if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
       perror("dup2");
       exit(1);
     }
+    printf("executing fib.cgi...\n");
     if (execve("fib.cgi", args, envp) == -1) {
       perror("execvp");
       exit(1);
@@ -228,64 +233,6 @@ void childProcess(int sockfd, int new_fd) {
     exit(1);
   }
   exit(0);
-}
-
-void parse_http_request(const char *request_str, HttpRequest *request) {
-  // Find the end of the request line
-  const char *end_of_request_line = strchr(request_str, '\n');
-  if (!end_of_request_line) {
-    printf("Invalid request format: No end of request line found.\n");
-    exit(1);
-  }
-
-  // Parse the request line
-  printf("The req string is: %s\n", request_str);
-  if (sscanf(request_str, "%9s %*[/] %99s %9s", request->method, request->path,
-             request->version) != 3) {
-    printf("Invalid request format: Unable to parse request line.\n");
-    exit(1);
-  }
-  // Check if the request path contains query parameters
-  printf("The recognized path is: %s\n", request->path);
-  char *query_start = strchr(request->path, '?');
-  printf("query start: %s\n", query_start);
-  if (query_start) {
-    char params_str[1000];
-    // Extract query parameters
-    strcpy(params_str, query_start + 1);
-
-    char *param;
-    int param_count = 0;
-    // Count the number of parameters
-    for (param = strtok(params_str, "&"); param; param = strtok(NULL, "&")) {
-      param_count++;
-    }
-    printf("The number of params is: %d\n", param_count);
-    // Allocate memory for params array
-    request->params = malloc(param_count * sizeof(char *));
-    if (request->params == NULL) {
-      printf("Memory allocation failed.\n");
-      exit(1);
-    }
-    // Extract and store each parameter
-    int i = 0;
-    for (param = strtok(params_str, "&"); param; param = strtok(NULL, "&")) {
-      request->params[i] = strdup(param);
-      printf("duplicated param %s -> %s", param, request->params[i]);
-      if (request->params[i] == NULL) {
-        printf("Memory allocation failed.\n");
-        exit(1);
-      }
-      i++;
-    }
-    request->param_count = param_count;
-    // Remove query parameters from the path
-    *query_start = '\0';
-  } else {
-    // No query parameters found
-    request->params = NULL;
-    request->param_count = 0;
-  }
 }
 
 // TODO: This most definetly has memory leaks
@@ -334,4 +281,89 @@ void mmap_file(const char *path, char **mapped) {
   }
 
   // printf("File contents:\n%s\n", (char *)*mapped);
+}
+
+void parse_http_request(char *request_str, HttpRequest *request) {
+  char *method;
+  char *path;
+  char *version;
+
+  const char *end_of_request_line = strchr(request_str, '\n');
+  if (!end_of_request_line) {
+    printf("Invalid request format: No end of request line found.\n");
+    exit(1);
+  }
+
+  int spc_count = 0;
+  const char *cr = strpbrk(request_str, "\r\n");
+  if (!cr) {
+    printf("malformed: no \\r\\n found\n");
+  }
+  for (int i = 0; i < cr - request_str; i++) {
+    if (request_str[i] == ' ')
+      spc_count++;
+  }
+  if (spc_count != 2) {
+    printf("malformed request");
+  }
+
+  method = strtok(request_str, " ");
+  path = strtok(NULL, " ");
+  version = strtok(NULL, "\r\n");
+
+  const char *params_check = strchr(path, '?');
+
+  if (!params_check) {
+    request->method = method;
+    // TODO: Validate that offsetting the path doesn't mess up calling free
+    // later
+    request->path = ++path;
+    request->version = version;
+    return;
+  }
+
+  char *del = strchr(path, '?');
+  int len = del - path;
+  // TODO: double check this pointer arithmatic when I'm not tired af
+  printf("CALLED\n");
+  char *just_path = (char *)malloc(len);
+  strncpy(just_path, path + 1, len - 1);
+
+  char *unp_args = (char *)malloc(strlen(path) - len + 1);
+  strncpy(unp_args, path + len, strlen(path) - len);
+  unp_args++; // get rid of / in string
+
+  int argc = 1;
+  for (int i = 0; i < strlen(unp_args); i++) {
+    if (unp_args[i] == '&')
+      argc++;
+  }
+  // printf("counted %d args\n", argc);
+  key_val **args = (key_val **)malloc(sizeof(key_val *) * argc + 1);
+  args[argc] = NULL;
+
+  int i = 0;
+  for (char *tok = strtok(unp_args, "&"); tok != NULL;
+       tok = strtok(NULL, "&")) {
+    // printf("Token: %s\n", tok);
+    // printf("strlen(tok) = %d\n", (int)strlen(tok));
+    char *del_pos = strchr(tok, '=');
+    int kl = del_pos - tok;
+    char *key = (char *)malloc(kl + 1);
+    key[kl] = '\0';
+    // char *val = (char *)malloc(strlen(tok) - kl + 1);
+    char *val = strdup(tok + kl + 1);
+    strncpy(key, tok, kl);
+    strncpy(val, tok + kl, strlen(key) - kl);
+    args[i] = (key_val *)malloc(sizeof(key_val));
+    args[i]->key = key;
+    args[i]->val = val;
+    i++;
+  }
+
+  request->method = method;
+  request->path = just_path; // ofset to get rid of `\`
+  request->version = version;
+  request->args = args;
+  request->argc = argc;
 }

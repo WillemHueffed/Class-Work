@@ -67,8 +67,8 @@ void parse_http_request(char *request_str, HttpRequest *request) {
 
   char *del = strchr(path, '?');
   int len = del - path;
-  char *just_path = (char *)malloc(len + 1);
-  strncpy(just_path, path, len);
+  char *just_path = (char *)malloc(len);
+  strncpy(just_path, path + 1, len - 1);
 
   char *unp_args = (char *)malloc(strlen(path) - len + 1);
   strncpy(unp_args, path + len, strlen(path) - len);
@@ -119,7 +119,7 @@ int main() {
                 "Host: cs2.seattleu.edu\r\n"
                 "\r\n";
   HttpRequest parsed_req;
-  parse_http_request(req1, &parsed_req);
+  parse_http_request(req, &parsed_req);
 
   printf("path: %s\n", parsed_req.path);
   printf("method: %s\n", parsed_req.method);
