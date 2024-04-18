@@ -177,7 +177,7 @@ void childProcess(int sockfd, int new_fd) {
     perror("recv");
     exit(1);
   }
-  printf("The incoming msg is:\n%s===============\n", incoming_msg);
+  // printf("The incoming msg is:\n%s===============\n", incoming_msg);
 
   // Parse HTTP req
   HttpRequest req;
@@ -191,7 +191,7 @@ void childProcess(int sockfd, int new_fd) {
 
   // printf("the query is: %s\n", req.query);
   char *q_string;
-  printf("req_query: %s\n", req.query);
+  // printf("req_query: %s\n", req.query);
   if (req.query) {
     q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
     strcpy(q_string, "QUERY_STRING=");
@@ -199,25 +199,22 @@ void childProcess(int sockfd, int new_fd) {
   } else {
     q_string = "QUERY_STRING=NULL";
   }
-  printf("q_string: %s\n", q_string);
+  // printf("q_string: %s\n", q_string);
 
   char *envp[] = {q_string, NULL};
 
   // Check this logic. if execvp fails what gets sent to client?
   // printf("req path is: %s\n", req.path);
   if (!strcmp(req.path, "fib.cgi")) {
-    printf("in execute\n");
-    /*
     if ((dup2(new_fd, 1) == -1) || (dup2(new_fd, 2) == -1)) {
       perror("dup2");
       exit(1);
     }
-    */
     if (execve("fib.cgi", args, envp) == -1) {
       perror("execvp");
       exit(1);
     }
-    printf("what the fuck is wrong with execute\n");
+    // printf("what the fuck is wrong with execute\n");
   } else {
     mmap_file(req.path, &file);
     alloc_http_msg(&http_resp, file, status, strlen(file));

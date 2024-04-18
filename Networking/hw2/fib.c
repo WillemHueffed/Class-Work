@@ -52,9 +52,17 @@ void fibN(int n, char **msg) {
 }
 
 int main() {
-  printf("Execute has been called\n");
   char *unp_args = getenv("QUERY_STRING");
-  printf("unparsed args: %s\n\n", unp_args);
+
+  if (!strcmp(unp_args, "NULL")) {
+    char *e_msg = "error args null\n";
+    char *status = "200 OK";
+    char *http_resp;
+    // alloc_http_msg(&http_resp, body, status, strlen(body));
+    alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
+    printf("%s", http_resp);
+    exit(1);
+  }
 
   int argc = 1;
   char *query = (char *)malloc(strlen(unp_args));
@@ -87,11 +95,6 @@ int main() {
     i++;
   }
 
-  for (int i = 0; i < argc; i++) {
-    printf("%s : %s\n", args[i]->key, args[i]->val);
-  }
-
-  printf("Extracted: %s\n", unp_args);
   char *body;
   fibN(atoi(unp_args), &body);
   // TODO: Add logic to check if fibN is unhappy (n<1);
