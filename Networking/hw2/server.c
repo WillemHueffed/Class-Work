@@ -164,6 +164,9 @@ void childProcess(int sockfd, int new_fd) {
   HttpRequest req;
   parse_http_request(incoming_msg, &req);
 
+  // char *http_resp;
+  // char *hdr;
+  char *file = NULL;
   char *args[] = {"./fib.cgi", NULL};
   char *q_string;
   if (req.query) {
