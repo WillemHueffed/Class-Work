@@ -26,14 +26,6 @@
 #define THREAD_NUM 10
 #define BUFFER_SIZE 25
 
-// Credit for producer/consumer semaphore code:
-// https://code-vault.net/lesson/tlu0jq32v9:1609364042686
-sem_t semEmpty;
-sem_t semFull;
-pthread_mutex_t mutexBuffer;
-int buffer[BUFFER_SIZE];
-int buff_count = 0;
-
 typedef struct {
   char *key;
   char *val;
@@ -49,6 +41,19 @@ typedef struct {
   key_val **args;
 } HttpRequest;
 
+typedef struct {
+  HttpRequest *req;
+  int fd;
+} consumer_info;
+
+// Credit for producer/consumer semaphore code:
+// https://code-vault.net/lesson/tlu0jq32v9:1609364042686
+sem_t semEmpty;
+sem_t semFull;
+pthread_mutex_t mutexBuffer;
+consumer_info buffer[BUFFER_SIZE];
+int buff_count = 0;
+
 void parse_http_request(char *request_str, HttpRequest *request);
 void getHTTPReq(int fd, char **req);
 void doChildProcess(int fd, char **args, char **envp);
@@ -63,6 +68,18 @@ void serve_static(int fd, HttpRequest *req);
 void *consumer(void *);
 
 int main() {
+  pthread_mutex_init(&mutexBuffer, NULL);
+  sem_init(&semEmpty, 0, BUFFER_SIZE);
+  sem_init(&semFull, 0, 0);
+  pthread_t th[THREAD_NUM];
+
+  for (int i = 0; i < THREAD_NUM; i++) {
+    if (pthread_create(&th[i], NULL, &consumer, NULL) != 0) {
+      perror("Failed to create thread");
+      exit(1);
+    }
+  }
+
   int sockfd, new_fd;
   struct sockaddr_storage their_addr;
   socklen_t sin_size;
@@ -150,6 +167,17 @@ int main() {
     }
     close(new_fd);
   }
+
+  for (int i = 0; i < THREAD_NUM; i++) {
+    if (pthread_join(th[i], NULL) != 0) {
+      perror("Failed to join thread\n");
+    }
+  }
+
+  sem_destroy(&semEmpty);
+  sem_destroy(&semFull);
+  pthread_mutex_destroy(&mutexBuffer);
+
   printf("exiting\n");
   return 0;
 }
@@ -466,9 +494,9 @@ void *consumer(void *args) {
   while (1) {
     sem_wait(&semFull);
     pthread_mutex_lock(&mutexBuffer);
-    int fd = buffer[buff_count - 1];
+    consumer_info inf = buffer[buff_count - 1];
     pthread_mutex_unlock(&mutexBuffer);
     sem_post(&semEmpty);
-    printf("Worker thread got fd %d\n", fd);
+    printf("Worker thread got fd %d\n", inf.fd);
   }
 }
