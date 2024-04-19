@@ -46,6 +46,7 @@ void alloc_http_msg(char **msg, char *, char *status, int content_length);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
 void setup(int *);
+int has_adjacent_periods(const char *);
 void serve_static(int fd, HttpRequest *req);
 
 int main() {
@@ -87,6 +88,17 @@ int main() {
       char *resp;
       char *msg = "server does not support this version\n";
       char *status = "502";
+      alloc_http_msg(&resp, msg, status, strlen(msg));
+      send_msg(resp, new_fd);
+      free(resp);
+      continue;
+    }
+
+    printf("req path: %s\n", req.path);
+    if (has_adjacent_periods(req.path)) {
+      char *resp;
+      char *msg = "server could not read this file\n";
+      char *status = "403";
       alloc_http_msg(&resp, msg, status, strlen(msg));
       send_msg(resp, new_fd);
       free(resp);
@@ -416,4 +428,16 @@ void getHTTPReq(int fd, char **req) {
     perror("recv");
     exit(1);
   }
+}
+
+int has_adjacent_periods(const char *str) {
+  while (*str) {
+    if (*str == '.') {
+      if (*(str + 1) == '.') {
+        return 1; // Two adjacent periods found
+      }
+    }
+    str++;
+  }
+  return 0; // No adjacent periods found
 }
