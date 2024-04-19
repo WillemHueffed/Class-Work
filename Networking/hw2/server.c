@@ -17,7 +17,7 @@
 #include <unistd.h>
 
 // #define PORT "10485"
-#define PORT "10486"
+#define PORT "10488"
 #define BACKLOG 20
 #define MAXDATASIZE 1000
 #define MAX_METHOD_LEN 10
@@ -32,26 +32,23 @@ typedef struct {
 } key_val;
 
 typedef struct {
-  char *method;
-  char *path;
-  char *params;
-  char *query;
-  int argc;
-  char *version;
-  key_val **args;
-} HttpRequest;
+  int portal_fd;
+  int conn_fd;
+} file_descriptors;
 
 typedef struct {
-  HttpRequest *req;
-  int fd;
-} consumer_info;
+  char *method;
+  char *path;
+  char *query;
+  char *version;
+} HttpRequest;
 
 // Credit for producer/consumer semaphore code:
 // https://code-vault.net/lesson/tlu0jq32v9:1609364042686
 sem_t semEmpty;
 sem_t semFull;
 pthread_mutex_t mutexBuffer;
-consumer_info buffer[BUFFER_SIZE];
+file_descriptors *buffer[BUFFER_SIZE];
 int buff_count = 0;
 
 void parse_http_request(char *request_str, HttpRequest *request);
@@ -94,78 +91,19 @@ int main() {
       perror("accept");
       continue;
     }
-
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr),
               s, sizeof s);
 
-    char *incoming_msg;
-    getHTTPReq(new_fd, &incoming_msg);
-
-    // Parse HTTP req
-    HttpRequest req;
-    parse_http_request(incoming_msg, &req);
-
-    // TODO: Refactor this error checking -> doesn't all need to be in main
-    if (strcmp(req.method, "GET")) {
-      char *resp;
-      char *msg = "server does not implement this method\n";
-      char *status = "501";
-      alloc_http_msg(&resp, msg, status, strlen(msg));
-      send_msg(resp, new_fd);
-      free(resp);
-      continue;
-    }
-    if (strcmp(req.version, "HTTP/1.1")) {
-      char *resp;
-      char *msg = "server does not support this version\n";
-      char *status = "502";
-      alloc_http_msg(&resp, msg, status, strlen(msg));
-      send_msg(resp, new_fd);
-      free(resp);
-      continue;
-    }
-
-    printf("req path: %s\n", req.path);
-    if (has_adjacent_periods(req.path)) {
-      char *resp;
-      char *msg = "server could not read this file\n";
-      char *status = "403";
-      alloc_http_msg(&resp, msg, status, strlen(msg));
-      send_msg(resp, new_fd);
-      free(resp);
-      continue;
-    }
-
-    char *file = NULL;
-    char *args[] = {"./fib.cgi", NULL};
-    char *q_string;
-    if (req.query != NULL) {
-      // printf("test\n");
-      // printf("req.query=%s\n", req.query);
-      q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
-      strcpy(q_string, "QUERY_STRING=");
-      strcat(q_string, req.query);
-    } else {
-      q_string = "QUERY_STRING=NULL";
-    }
-    char *envp[] = {q_string, NULL};
-    if (!strcmp(req.path, "fib.cgi")) {
-      pid_t pid;
-      int status;
-      pid = fork();
-      if (!pid) {
-        if (close(sockfd) == -1) {
-          perror("close");
-          exit(1);
-        }
-        doChildProcess(new_fd, args, envp);
-      }
-      waitpid(pid, &status, 0);
-    } else {
-      // Dispatch to a worker thread
-      serve_static(new_fd, &req);
-    }
-    close(new_fd);
+    file_descriptors *fds =
+        (file_descriptors *)malloc(sizeof(file_descriptors));
+    fds->portal_fd = sockfd;
+    fds->conn_fd = new_fd;
+    sem_wait(&semEmpty);
+    pthread_mutex_lock(&mutexBuffer);
+    buffer[buff_count] = fds;
+    buff_count++;
+    pthread_mutex_unlock(&mutexBuffer);
+    sem_post(&semFull);
   }
 
   for (int i = 0; i < THREAD_NUM; i++) {
@@ -276,7 +214,6 @@ void serve_static(int fd, HttpRequest *req) {
   alloc_http_msg(&http_resp, file, status, strlen(file));
 
   send_msg(http_resp, fd);
-  free(http_resp);
 
   // Close junk out
   if (close(fd) == -1) {
@@ -291,7 +228,6 @@ void serve_static(int fd, HttpRequest *req) {
 
 void send_msg(char *http_resp, int fd) {
   int bytes_sent = 0;
-  printf("%s", http_resp);
   int msg_length = strlen(http_resp);
 
   while (bytes_sent < msg_length) {
@@ -323,8 +259,7 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // TODO: Check return vals
   strcpy(*http_resp, header);
   strcat(*http_resp, body);
-  // free(header);
-  // free(body);
+  free(header);
 }
 
 int mmap_file(const char *path, char **mapped) {
@@ -355,7 +290,6 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   char *method;
   char *path;
   char *version;
-  printf("%s", request_str);
 
   const char *end_of_request_line = strchr(request_str, '\n');
   if (!end_of_request_line) {
@@ -378,17 +312,14 @@ void parse_http_request(char *request_str, HttpRequest *request) {
 
   method = strtok(request_str, " ");
   path = strtok(NULL, " ");
-  printf("raw path: %s\n", path);
   version = strtok(NULL, "\r\n");
 
   const char *params_check = strchr(path, '?');
 
   if (!params_check) {
     request->method = method;
-    // TODO: Validate that offsetting the path doesn't mess up calling free
-    // later
-    request->path = ++path;
-    request->version = version;
+    request->path = strdup(++path);
+    request->version = strdup(version);
     request->query = NULL;
     return;
   }
@@ -403,43 +334,14 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   strncpy(unp_args, path + len, strlen(path) - len);
   unp_args++; // get rid of / in string
 
-  int argc = 1;
   char *query = (char *)malloc(strlen(unp_args));
   query = strdup(unp_args);
-  // printf("The query is: %s\n", query);
-  for (int i = 0; i < strlen(unp_args); i++) {
-    if (unp_args[i] == '&')
-      argc++;
-  }
-  // printf("counted %d args\n", argc);
-  key_val **args = (key_val **)malloc(sizeof(key_val *) * argc + 1);
-  args[argc] = NULL;
 
-  int i = 0;
-  for (char *tok = strtok(unp_args, "&"); tok != NULL;
-       tok = strtok(NULL, "&")) {
-    // printf("Token: %s\n", tok);
-    // printf("strlen(tok) = %d\n", (int)strlen(tok));
-    char *del_pos = strchr(tok, '=');
-    int kl = del_pos - tok;
-    char *key = (char *)malloc(kl + 1);
-    key[kl] = '\0';
-    // char *val = (char *)malloc(strlen(tok) - kl + 1);
-    char *val = strdup(tok + kl + 1);
-    strncpy(key, tok, kl);
-    strncpy(val, tok + kl, strlen(key) - kl);
-    args[i] = (key_val *)malloc(sizeof(key_val));
-    args[i]->key = key;
-    args[i]->val = val;
-    i++;
-  }
-
-  request->query = query;
-  request->method = method;
-  request->path = just_path; // ofset to get rid of `\`
-  request->version = version;
-  request->args = args;
-  request->argc = argc;
+  request->query = strdup(query);
+  request->method = strdup(method);
+  request->path = strdup(just_path); // ofset to get rid of `\`
+  request->version = strdup(version);
+  // request->params
 }
 
 void doChildProcess(int fd, char **args, char **envp) {
@@ -454,7 +356,6 @@ void doChildProcess(int fd, char **args, char **envp) {
 }
 
 void getHTTPReq(int fd, char **req) {
-  // Get incoming HTTP req
   *req = malloc(1000);
   int numbytes = 0;
   char *end_of_hdr;
@@ -494,9 +395,85 @@ void *consumer(void *args) {
   while (1) {
     sem_wait(&semFull);
     pthread_mutex_lock(&mutexBuffer);
-    consumer_info inf = buffer[buff_count - 1];
+    file_descriptors *fds = buffer[buff_count - 1];
     pthread_mutex_unlock(&mutexBuffer);
     sem_post(&semEmpty);
-    printf("Worker thread got fd %d\n", inf.fd);
+
+    char *incoming_msg;
+    getHTTPReq(fds->conn_fd, &incoming_msg);
+
+    // Parse HTTP req
+    HttpRequest req;
+    parse_http_request(incoming_msg, &req);
+
+    // TODO: Refactor this error checking -> doesn't all need to be in main
+    if (strcmp(req.method, "GET")) {
+      char *resp;
+      char *msg = "server does not implement this method\n";
+      char *status = "501";
+      alloc_http_msg(&resp, msg, status, strlen(msg));
+      send_msg(resp, fds->conn_fd);
+      printf("get\n");
+      free(resp);
+      continue;
+    }
+    if (strcmp(req.version, "HTTP/1.1")) {
+      char *resp;
+      char *msg = "server does not support this version\n";
+      char *status = "502";
+      alloc_http_msg(&resp, msg, status, strlen(msg));
+      send_msg(resp, fds->conn_fd);
+      printf("version\n");
+      free(resp);
+      continue;
+    }
+
+    if (has_adjacent_periods(req.path)) {
+      char *resp;
+      char *msg = "server could not read this file\n";
+      char *status = "403";
+      alloc_http_msg(&resp, msg, status, strlen(msg));
+      send_msg(resp, fds->conn_fd);
+      printf("resp\n");
+      free(resp);
+      continue;
+    }
+
+    char *file = NULL;
+    char *args[] = {"./fib.cgi", NULL};
+    char *q_string;
+    if (req.query != NULL) {
+      q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
+      strcpy(q_string, "QUERY_STRING=");
+      strcat(q_string, req.query);
+    } else {
+      q_string = "QUERY_STRING=NULL";
+    }
+    char *envp[] = {q_string, NULL};
+    if (!strcmp(req.path, "fib.cgi")) {
+      pid_t pid;
+      int status;
+      pid = fork();
+      if (!pid) {
+        if (close(fds->portal_fd) == -1) {
+          perror("close");
+          exit(1);
+        }
+        doChildProcess(fds->conn_fd, args, envp);
+      }
+      waitpid(pid, &status, 0);
+    } else {
+      serve_static(fds->conn_fd, &req);
+    }
+    close(fds->conn_fd);
+    if (req.path)
+      free(req.path);
+    if (req.query)
+      free(req.query);
+    if (req.method)
+      free(req.method);
+    if (req.version)
+      free(req.version);
+    free(fds);
   }
 }
