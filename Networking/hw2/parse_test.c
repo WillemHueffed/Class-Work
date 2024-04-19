@@ -120,7 +120,7 @@ int main() {
                "Host: cs2.seattleu.edu\r\n"
                "\r\n";
 
-  char req1[] = "GET /fib.cgi HTTP/1.1\r\n"
+  char req1[] = "GET /../fib.cgi HTTP/1.1\r\n"
                 "Host: cs2.seattleu.edu\r\n"
                 "\r\n";
   HttpRequest parsed_req;

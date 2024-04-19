@@ -1,8 +1,11 @@
 # Compiler
 CC = gcc
+
 # Compiler flags
 #CFLAGS = -Wall -Wextra -g
 CFLAGS = -g
+
+LIBS = -pthread
 
 # Source files for the server and client
 SERVER_SRCS = server.c
@@ -24,7 +27,7 @@ all: $(SERVER_EXEC) $(CLIENT_EXEC) $(OTHER_EXEC)
 
 # Server executable
 $(SERVER_EXEC): $(SERVER_OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(LIBS) $^ -o $@
 
 # Client executable
 $(CLIENT_EXEC): $(CLIENT_OBJS)

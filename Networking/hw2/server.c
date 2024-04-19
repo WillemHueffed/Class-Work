@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +23,16 @@
 #define MAX_METHOD_LEN 10
 #define MAX_PATH_LEN 100
 #define MAX_VERSION_LEN 10
+#define THREAD_NUM 10
+#define BUFFER_SIZE 25
+
+// Credit for producer/consumer semaphore code:
+// https://code-vault.net/lesson/tlu0jq32v9:1609364042686
+sem_t semEmpty;
+sem_t semFull;
+pthread_mutex_t mutexBuffer;
+int buffer[BUFFER_SIZE];
+int buff_count = 0;
 
 typedef struct {
   char *key;
@@ -48,6 +60,7 @@ void *get_in_addr(struct sockaddr *);
 void setup(int *);
 int has_adjacent_periods(const char *);
 void serve_static(int fd, HttpRequest *req);
+void *consumer(void *);
 
 int main() {
   int sockfd, new_fd;
@@ -75,6 +88,7 @@ int main() {
     HttpRequest req;
     parse_http_request(incoming_msg, &req);
 
+    // TODO: Refactor this error checking -> doesn't all need to be in main
     if (strcmp(req.method, "GET")) {
       char *resp;
       char *msg = "server does not implement this method\n";
@@ -119,17 +133,21 @@ int main() {
     }
     char *envp[] = {q_string, NULL};
     if (!strcmp(req.path, "fib.cgi")) {
-      if (!fork()) {
+      pid_t pid;
+      int status;
+      pid = fork();
+      if (!pid) {
         if (close(sockfd) == -1) {
           perror("close");
           exit(1);
         }
         doChildProcess(new_fd, args, envp);
       }
+      waitpid(pid, &status, 0);
     } else {
+      // Dispatch to a worker thread
       serve_static(new_fd, &req);
     }
-
     close(new_fd);
   }
   printf("exiting\n");
@@ -309,6 +327,7 @@ void parse_http_request(char *request_str, HttpRequest *request) {
   char *method;
   char *path;
   char *version;
+  printf("%s", request_str);
 
   const char *end_of_request_line = strchr(request_str, '\n');
   if (!end_of_request_line) {
@@ -331,6 +350,7 @@ void parse_http_request(char *request_str, HttpRequest *request) {
 
   method = strtok(request_str, " ");
   path = strtok(NULL, " ");
+  printf("raw path: %s\n", path);
   version = strtok(NULL, "\r\n");
 
   const char *params_check = strchr(path, '?');
@@ -434,10 +454,21 @@ int has_adjacent_periods(const char *str) {
   while (*str) {
     if (*str == '.') {
       if (*(str + 1) == '.') {
-        return 1; // Two adjacent periods found
+        return 1;
       }
     }
     str++;
   }
-  return 0; // No adjacent periods found
+  return 0;
+}
+
+void *consumer(void *args) {
+  while (1) {
+    sem_wait(&semFull);
+    pthread_mutex_lock(&mutexBuffer);
+    int fd = buffer[buff_count - 1];
+    pthread_mutex_unlock(&mutexBuffer);
+    sem_post(&semEmpty);
+    printf("Worker thread got fd %d\n", fd);
+  }
 }
