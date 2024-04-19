@@ -40,6 +40,7 @@ typedef struct {
 void parse_http_request(char *request_str, HttpRequest *request);
 void getHTTPReq(int fd, char **req);
 void doChildProcess(int fd, char **args, char **envp);
+void send_msg(char *http_resp, int fd);
 int mmap_file(const char *, char **);
 void alloc_http_msg(char **msg, char *, char *status, int content_length);
 void sigchld_handler(int);
@@ -67,8 +68,6 @@ int main() {
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr),
               s, sizeof s);
 
-    /*
-     */
     char *incoming_msg;
     getHTTPReq(new_fd, &incoming_msg);
 
@@ -76,15 +75,31 @@ int main() {
     HttpRequest req;
     parse_http_request(incoming_msg, &req);
 
-    // char *http_resp;
-    // char *hdr;
+    if (strcmp(req.method, "GET")) {
+      char *resp;
+      char *msg = "server does not implement this method\n";
+      char *status = "501";
+      alloc_http_msg(&resp, msg, status, strlen(msg));
+      send_msg(resp, new_fd);
+      free(resp);
+      continue;
+    }
+    if (strcmp(req.version, "HTTP/1.1")) {
+      char *resp;
+      char *msg = "server does not support this version\n";
+      char *status = "502";
+      alloc_http_msg(&resp, msg, status, strlen(msg));
+      send_msg(resp, new_fd);
+      free(resp);
+      continue;
+    }
+
     char *file = NULL;
     char *args[] = {"./fib.cgi", NULL};
     char *q_string;
     if (req.query != NULL) {
       printf("test\n");
       printf("req.query=%s\n", req.query);
-      // This is causing the seg fault -> but why????
       q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
       strcpy(q_string, "QUERY_STRING=");
       strcat(q_string, req.query);
@@ -209,9 +224,21 @@ void serve_static(int fd, HttpRequest *req) {
   }
   alloc_http_msg(&http_resp, file, status, strlen(file));
 
-  // Form HTTP resp (for static content)
+  send_msg(http_resp, fd);
+  free(http_resp);
 
-  // Send resp
+  // Close junk out
+  if (close(fd) == -1) {
+    perror("close");
+    exit(1);
+  }
+  if (!ret_val && file != NULL && munmap(file, strlen(file)) == -1) {
+    perror("munmap");
+    exit(1);
+  }
+}
+
+void send_msg(char *http_resp, int fd) {
   int bytes_sent = 0;
   printf("%s", http_resp);
   int msg_length = strlen(http_resp);
@@ -223,17 +250,6 @@ void serve_static(int fd, HttpRequest *req) {
       exit(1);
     }
     bytes_sent += x;
-  }
-
-  // Close junk out
-  if (close(fd) == -1) {
-    perror("close");
-    exit(1);
-  }
-  if (!ret_val && file != NULL && munmap(file, strlen(file)) == -1) {
-    printf("munmap\n");
-    perror("munmap");
-    exit(1);
   }
 }
 
@@ -256,8 +272,6 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // TODO: Check return vals
   strcpy(*http_resp, header);
   strcat(*http_resp, body);
-  // printf("header msg\n");
-  // printf("%s", *msg);
 }
 
 int mmap_file(const char *path, char **mapped) {
