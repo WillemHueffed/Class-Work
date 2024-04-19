@@ -1,5 +1,6 @@
 // Credit: https://www.geeksforgeeks.org/c-fibonacci-series/#
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,12 +10,28 @@ typedef struct {
   char *val;
 } key_val;
 
+int isConvertible(char *str) {
+  if (!str || !*str) {
+    return 1;
+  }
+  for (const char *c = str; *c; ++c) {
+    if (!isdigit(*c)) {
+      return 1;
+    }
+  }
+  int number = atoi(str);
+  if (number < 0 || number > 10000) {
+    return 1;
+  }
+  return 0;
+}
+
 void alloc_http_msg(char **http_resp, char *body, char *status,
                     int content_length) {
   char *header = (char *)malloc(1000);
   const char *date = "4/16/24";
   const char *content_type = "text/html";
-  snprintf(header, 1000,
+  snprintf(header, 2000,
            "HTTP/1.1 %s\r\n"
            "Connection: close\r\n"
            "Date: %s\r\n"
@@ -27,8 +44,6 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // TODO: Check return vals
   strcpy(*http_resp, header);
   strcat(*http_resp, body);
-  // printf("header msg\n");
-  // printf("%s", *msg);
 }
 
 void fibN(int n, char *user, char **msg) {
@@ -56,13 +71,12 @@ void fibN(int n, char *user, char **msg) {
 
 int main() {
   char *unp_args = getenv("QUERY_STRING");
-  // char unp_args[] = "user=willem&n=8";
+  // char unp_args[] = "user=willem&n=2wo";
 
   if (!strcmp(unp_args, "NULL")) {
     char *e_msg = "error args null\n";
     char *status = "200 OK";
     char *http_resp;
-    // alloc_http_msg(&http_resp, body, status, strlen(body));
     alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
     printf("%s", http_resp);
     exit(1);
@@ -81,13 +95,10 @@ int main() {
   int i = 0;
   for (char *tok = strtok(unp_args, "&"); tok != NULL;
        tok = strtok(NULL, "&")) {
-    // printf("Token: %s\n", tok);
-    // printf("strlen(tok) = %d\n", (int)strlen(tok));
     char *del_pos = strchr(tok, '=');
     int kl = del_pos - tok;
     char *key = (char *)malloc(kl + 1);
     key[kl] = '\0';
-    // char *val = (char *)malloc(strlen(tok) - kl + 1);
     char *val = strdup(tok + kl + 1);
     strncpy(key, tok, kl);
     strncpy(val, tok + kl, strlen(key) - kl);
@@ -99,9 +110,8 @@ int main() {
 
   if (argc != 2) {
     char *e_msg = "error only 2 args allowed\n";
-    char *status = "200 OK";
+    char *status = "400 Bad Request";
     char *http_resp;
-    // alloc_http_msg(&http_resp, body, status, strlen(body));
     alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
     printf("%s", http_resp);
     exit(1);
@@ -123,9 +133,18 @@ int main() {
 
   if (!n || !user) {
     char *e_msg = "error only \"user\" and \"n\" params allowed\n";
-    char *status = "200 OK";
+    char *status = "400 Bad Request";
     char *http_resp;
-    // alloc_http_msg(&http_resp, body, status, strlen(body));
+    alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
+    printf("%s", http_resp);
+    exit(1);
+  }
+
+  // Validate n's value
+  if (isConvertible(n) != 0) {
+    char *e_msg = "n must be an positive integer < 10000\n";
+    char *status = "500 Internal Server Error";
+    char *http_resp;
     alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
     printf("%s", http_resp);
     exit(1);
@@ -133,10 +152,8 @@ int main() {
 
   char *body;
   fibN(atoi(n), user, &body);
-  // TODO: Add logic to check if fibN is unhappy (n<1);
   char *status = "200 OK";
   char *http_resp;
-  // alloc_http_msg(&http_resp, body, status, strlen(body));
   alloc_http_msg(&http_resp, body, status, strlen(body));
   printf("%s", http_resp);
   if (unsetenv("QUERY_STRING") != 0) {

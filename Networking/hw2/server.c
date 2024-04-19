@@ -46,7 +46,6 @@ void alloc_http_msg(char **msg, char *, char *status, int content_length);
 void sigchld_handler(int);
 void *get_in_addr(struct sockaddr *);
 void setup(int *);
-void childProcess(int, int);
 void serve_static(int fd, HttpRequest *req);
 
 int main() {
@@ -98,8 +97,8 @@ int main() {
     char *args[] = {"./fib.cgi", NULL};
     char *q_string;
     if (req.query != NULL) {
-      printf("test\n");
-      printf("req.query=%s\n", req.query);
+      // printf("test\n");
+      // printf("req.query=%s\n", req.query);
       q_string = (char *)malloc(strlen("QUERY_STRING=") + strlen(req.query));
       strcpy(q_string, "QUERY_STRING=");
       strcat(q_string, req.query);
@@ -201,12 +200,6 @@ void setup(int *sockfd) {
   printf("server: waiting for connections...\n");
 }
 
-void childProcess(int sockfd, int new_fd) {
-  // Check this logic. if execvp fails what gets sent to client?
-  // printf("req path is: %s\n", req.path);
-  // this is where fork should occur
-}
-
 void serve_static(int fd, HttpRequest *req) {
   char *http_resp;
   char *status = "200 OK";
@@ -272,6 +265,8 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // TODO: Check return vals
   strcpy(*http_resp, header);
   strcat(*http_resp, body);
+  // free(header);
+  // free(body);
 }
 
 int mmap_file(const char *path, char **mapped) {
