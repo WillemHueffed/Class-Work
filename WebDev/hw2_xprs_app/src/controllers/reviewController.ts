@@ -1,14 +1,21 @@
 import { Request, Response } from "express";
 import { mongoDB } from "../index";
+import { Review } from "../data";
 
 export const create_review = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  console.log("in create_review");
+  const { rating, description } = req.body;
+  if (!rating || !description) {
+    res.status(400).json({ error: "Please provide a rating and a comment" });
+    return;
+  }
+  const review = new Review(rating, description);
   try {
     const reviewCollection = mongoDB.collection("reviews");
-    const rev = { "1": "test" };
-    const result = await reviewCollection.insertOne(rev);
+    const result = await reviewCollection.insertOne(review);
     console.log(`A document was inserted with the _id: ${result.insertedId}`);
     res.status(201).json({
       message: "Review created successfully",
