@@ -7,7 +7,7 @@
 
 2. Edit the rating and/or text of an existing review. A user can only edit a review that they posted.
 
-   POST localhost:3000/reviews/:reviewID
+   PATCH localhost:3000/reviews/:reviewID
 
 
 3. Post a plain text comment about a review. A user can only post a comment if the user is logged in.

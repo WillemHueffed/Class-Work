@@ -2,13 +2,12 @@ import express, { Router } from "express";
 import { requiresAuth } from "express-openid-connect";
 import * as reviewController from "../controllers/reviewController";
 import commentRouter from "./comments";
-
 const router: Router = express.Router();
 
 router.use("/:reviewID/comments", commentRouter);
 
 router.post("/:bookID/", requiresAuth, reviewController.create_review);
-router.post("/:bookID/pub", reviewController.create_review);
+router.post("pub", reviewController.create_review);
 router.patch("/:reviewID", requiresAuth, reviewController.patch_review_by_id);
 router.patch("/:reviewID/pub", reviewController.patch_review_by_id);
 router.get("/byAuthor/:authorID", reviewController.get_reviews_by_authorID);

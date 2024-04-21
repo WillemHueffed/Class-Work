@@ -26,6 +26,7 @@ interface Book {
   editions: { ed_num: number; pub_date: string; id: string }[];
 }
 
+// TODO: Prevent user from creating multiple reviews for same book
 export const create_review = async (
   req: Request,
   res: Response,
@@ -85,8 +86,36 @@ export const create_review = async (
   }
 };
 
-export const patch_review_by_id = (req: Request, res: Response): void => {
-  res.status(404).json({ error: "wip patch review" });
+// TODO: this allows creating new arbritrary fields.
+// Add protections so only the rating and description can be mutated
+// Add protection so only author of review can update
+export const patch_review_by_id = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  console.log("in patch");
+  const reviewID = req.params.reviewID;
+  const updateData = req.body;
+  console.log(req.body);
+
+  try {
+    const reviews = mongoDB.collection("reviews");
+    const result = await reviews.updateOne(
+      { reviewID: reviewID },
+      { $set: updateData },
+    );
+
+    if (result.matchedCount === 0) {
+      console.log("no review found");
+      res.status(404).json({ error: "Review not found" });
+      return;
+    }
+    console.log("200");
+    res.status(200).json({ message: "Review updated successfully" });
+  } catch (error) {
+    console.error("Error updating review:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 export const get_reviews_by_bookID = async (
