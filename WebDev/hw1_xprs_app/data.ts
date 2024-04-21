@@ -64,6 +64,7 @@ for (let i = 1; i < 5; i++) {
     `bday${i}`,
     `genre${i}`,
   );
+  author.id = i.toString();
   const book: Book = new Book(
     `book${i}`,
     `sub${i}`,
@@ -71,6 +72,7 @@ for (let i = 1; i < 5; i++) {
     [`tag${i}`],
     author,
   );
+  book.id = i.toString();
   authors.push(author);
   books.push(book);
 }
