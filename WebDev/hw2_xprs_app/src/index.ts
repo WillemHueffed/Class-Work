@@ -1,5 +1,3 @@
-// src/index.ts
-// https://manage.auth0.com/dashboard/us/dev-7qw8fvj8e40n61ha/
 import { UUID } from "bson";
 import logger from "morgan";
 import createError from "http-errors";
@@ -12,32 +10,6 @@ import path from "path";
 import cookieParser from "cookie-parser";
 dotenv.config();
 
-const app = express();
-// view engine setup
-app.set("views", path.join(__dirname, "views"));
-app.set("view engine", "pug");
-
-app.use(logger("dev"));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
-
-app.use("/reviews", reviewRouter);
-// error handler
-app.use(function(err: any, req: Request, res: Response, next: NextFunction) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get("env") === "development" ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render("error");
-});
-
-const port = 3001;
-console.log(process.env.AUTH0_BASEURL);
-
 const config = {
   authRequired: false,
   auth0Logout: true,
@@ -47,14 +19,36 @@ const config = {
   issuerBaseURL: process.env.AUTH0_ISSUERBASEURL,
 };
 
+const app = express();
+// Set up Express middleware
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "pug");
 app.use(auth(config));
+app.use(logger("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, "public")));
+
+// Define Express routes
 app.get("/", (req, res) => {
   res.send(req.oidc.isAuthenticated() ? "Logged in" : "Logged out");
 });
+app.use("/reviews", reviewRouter);
+app.get("/", (req, res) => {
+  res.send("Welcome to the reviews API with data persistance!");
+});
 
+// Error handler
+app.use(function(err: any, req: Request, res: Response, next: NextFunction) {
+  res.locals.message = err.message;
+  res.locals.error = req.app.get("env") === "development" ? err : {};
+  res.status(err.status || 500);
+  res.render("error");
+});
+
+// MongoDB connection setup
 const uri = process.env.MONGO_URI;
-let mongoDB: Db;
-
 const mongoClient = new MongoClient(uri as string, {
   pkFactory: { createPk: () => new UUID().toBinary() },
   serverApi: {
@@ -63,41 +57,31 @@ const mongoClient = new MongoClient(uri as string, {
     deprecationErrors: true,
   },
 });
-async function run() {
+let mongoDB: Db;
+
+async function connectToMongoDB() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
     await mongoClient.connect();
-    // Send a ping to confirm a successful connection
     await mongoClient.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
     );
     mongoDB = mongoClient.db("WebDev");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    //await mongoClient.close();
-    //console.log("client closed");
+    startServer();
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
+    process.exit(1);
   }
 }
-run().catch(console.dir);
 
-app.get("/", (req, res) => {
-  res.send("Welcome to the reviews API with data persistance!");
-});
+function startServer() {
+  const port = process.env.PORT || 3001;
+  app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}`);
+  });
+}
 
-// This is conflicting with the auth0 middleware...
-// catch 404 and forward to error handler
-//app.use(function(req, res, next) {
-// next(createError(404));
-//});
+// Start the MongoDB connection and server
+connectToMongoDB();
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
-
-//const authConfig = {
-//  domain: process.env.AUTH0_DOMAIN,
-//  audience: process.env.AUTH0_AUDIENCE,
-//};
-
-export { mongoClient, mongoDB, app };
+export { mongoDB, app };

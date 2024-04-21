@@ -95,8 +95,21 @@ export const patch_review_by_id = async (
 ): Promise<void> => {
   console.log("in patch");
   const reviewID = req.params.reviewID;
-  const updateData = req.body;
   console.log(req.body);
+  const updateData: { rating?: string; description?: string } = {};
+
+  const { rating, description } = req.body;
+  if (rating) {
+    updateData.rating = rating;
+  }
+  if (description) {
+    updateData.description = description;
+  }
+
+  if (!rating && !description) {
+    res.status(400).json({ error: "Please update rating and/or description" });
+    return;
+  }
 
   try {
     const reviews = mongoDB.collection("reviews");
