@@ -31,7 +31,6 @@ export const create_review = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  console.log("wtf\n");
   let books;
 
   try {
@@ -86,9 +85,7 @@ export const create_review = async (
   }
 };
 
-// TODO: this allows creating new arbritrary fields.
-// Add protections so only the rating and description can be mutated
-// Add protection so only author of review can update
+// TODO Add protection so only author of review can update
 export const patch_review_by_id = async (
   req: Request,
   res: Response,
