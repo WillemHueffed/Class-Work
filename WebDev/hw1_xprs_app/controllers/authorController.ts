@@ -12,11 +12,11 @@ export const add_author = (req: Request, res: Response): void => {
   const author = new Author(name, bio, bday, genre);
   console.log(req.body);
   authors.push(author);
-  res.status(200).json({ author });
+  res.status(200).json(author);
 };
 
 export const list_authors = (req: Request, res: Response): void => {
-  res.status(200).json({ authors });
+  res.status(200).json(authors);
 };
 
 export const update_author_bio = (req: Request, res: Response): void => {
@@ -32,5 +32,5 @@ export const update_author_bio = (req: Request, res: Response): void => {
     return;
   }
   author.bio = bio;
-  res.status(200).json({ author });
+  res.status(200).json(author);
 };

@@ -2,6 +2,14 @@ import { Request, Response } from "express";
 import { mongoDB } from "../index";
 import { Review } from "../data";
 
+interface Author {
+  name: string;
+  bio: string;
+  bday: string;
+  genre: string;
+  id: string;
+}
+
 interface Book {
   title: string;
   subtitle: string;
@@ -26,9 +34,7 @@ export const create_review = async (
   let books;
 
   try {
-    console.log("trying to ping server");
     const response = await fetch("http://localhost:3000/books");
-    console.log("pinged");
     if (!response.ok) {
       console.error("Bad resonse from localhost:3000/books");
       res.status(500).json({ error: "Internal server error" });
@@ -42,6 +48,7 @@ export const create_review = async (
   }
 
   const bookID = req.params.bookID;
+  console.log(books);
   const specifiedBook = books.find((book: Book) => book.id === bookID);
 
   // Log the specified book if found
@@ -86,6 +93,30 @@ export const get_reviews_by_bookID = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  let books;
+  try {
+    const response = await fetch("http://localhost:3000/books");
+    if (!response.ok) {
+      console.error("Bad resonse from localhost:3000/books");
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+    books = await response.json();
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+
+  const bookID = req.params.bookID;
+  const specifiedBook = books.find((book: Book) => book.id === bookID);
+
+  // Log the specified book if found
+  if (!specifiedBook) {
+    res.status(404).json({ error: "Book not found\n" });
+    return;
+  }
+
   const reviews = mongoDB.collection("reviews");
   const objArr = await reviews.find({ bookID: req.params.bookID }).toArray();
   const mappedArr = objArr.map(({ _id, comments, ...rest }) => rest);
@@ -98,6 +129,32 @@ export const get_reviews_by_authorID = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  let authors;
+  try {
+    const response = await fetch("http://localhost:3000/authors");
+    if (!response.ok) {
+      console.error("Bad resonse from localhost:3000/books");
+      res.status(500).json({ error: "Internal server error" });
+      return;
+    }
+    authors = await response.json();
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    res.status(500).json({ error: "Internal server error" });
+    return;
+  }
+
+  console.log(authors);
+  const specifiedAuthor = authors.find(
+    (author: Author) => author.id === req.params.authorID,
+  );
+
+  // Log the specified book if found
+  if (!specifiedAuthor) {
+    res.status(404).json({ error: "Author not found\n" });
+    return;
+  }
+
   const reviews = mongoDB.collection("reviews");
   const objArr = await reviews.find({ bookID: req.params.authorID }).toArray();
   const mappedArr = objArr.map(({ _id, comments, ...rest }) => rest);
