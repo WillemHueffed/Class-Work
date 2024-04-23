@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { mongoDB } from "../index";
-import { ObjectId, PullOperator } from "mongodb";
+import { PullOperator } from "mongodb";
 import { Comment } from "../data";
 
 export const create_comment = async (
@@ -69,7 +69,20 @@ export const delete_comment = async (
   }
 };
 
-// TODO: write this
-export const get_comments = (req: Request, res: Response): void => {
-  res.status(404).json({ error: "wip get comments" });
+export const get_comments = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  const reviews = mongoDB.collection("reviews");
+  try {
+    const review = await reviews.findOne({ reviewID: req.params.reviewID });
+    if (!review) {
+      res.status(404).json({ error: "Review not found" });
+      return;
+    }
+    res.status(200).json(review.comments);
+  } catch (error) {
+    console.error("Error retrieving comments:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
