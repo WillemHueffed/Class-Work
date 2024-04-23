@@ -1,9 +1,19 @@
 import { v4 as uuidv4 } from "uuid";
 
+class Comment {
+  comment: string;
+  commentID: string;
+
+  constructor(comment: string) {
+    this.comment = comment;
+    this.commentID = uuidv4();
+  }
+}
+
 class Review {
   rating: number;
   desc: string;
-  comments: string[];
+  comments: Comment[];
   reviewID: string;
   bookID: string;
   authorID: string;
@@ -18,4 +28,4 @@ class Review {
   }
 }
 
-export { Review };
+export { Review, Comment };

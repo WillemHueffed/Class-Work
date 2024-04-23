@@ -1,24 +1,27 @@
 import { Request, Response } from "express";
 import { mongoDB } from "../index";
+import { ObjectId, PullOperator } from "mongodb";
+import { Comment } from "../data";
 
-// TODO: check that this is properly handling review and commment ids
-export const addCommentToReview = async (
+export const create_comment = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const reviewId = req.params.reviewID;
     const { comment } = req.body;
+    console.log("in create comment");
 
     if (!comment) {
       res.status(400).json({ error: "Comment is required" });
       return;
     }
 
+    const commentObj = new Comment(comment);
     const reviews = mongoDB.collection("reviews");
     const result = await reviews.updateOne(
       { reviewID: reviewId },
-      { $push: { comments: comment } },
+      { $push: { comments: commentObj } as PullOperator<Document> },
     );
 
     if (result.matchedCount === 0) {
@@ -33,7 +36,6 @@ export const addCommentToReview = async (
   }
 };
 
-// TODO: this isn't handling ids properly
 export const delete_comment = async (
   req: Request,
   res: Response,
@@ -44,12 +46,19 @@ export const delete_comment = async (
 
     const reviews = mongoDB.collection("reviews");
     const result = await reviews.updateOne(
-      { reviewID: reviewId },
-      { $pull: { comments: { _id: new objectId(commentId) } } },
+      {
+        reviewID: reviewId,
+        "comments.commentID": commentId,
+      },
+      {
+        $pull: {
+          comments: { commentID: commentId },
+        } as PullOperator<Document>,
+      },
     );
 
     if (result.matchedCount === 0) {
-      res.status(404).json({ error: "Review not found" });
+      res.status(404).json({ error: "Review or Comment not found" });
       return;
     }
 
