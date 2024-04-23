@@ -51,6 +51,72 @@ pthread_mutex_t mutexBuffer;
 file_descriptors *buffer[BUFFER_SIZE];
 int buff_count = 0;
 
+void print_usage() {
+  perror("Error: call the script like \"./server [-p port] [-t threads] [-b "
+         "buffers]\"\n");
+}
+
+void parse_command_line(int argc, char **argv, char **ports_num,
+                        char **threads_num, char **client_buff_num) {
+  if (argc != 7) {
+    print_usage();
+    exit(1);
+  }
+  int option;
+  int pflag = 0;
+  int tflag = 0;
+  int bflag = 0;
+  // char *server;
+  // char *port;
+
+  *ports_num = NULL;
+  *threads_num = NULL;
+  *client_buff_num = NULL;
+
+  while ((option = getopt(argc, argv, "p:t:b:")) != -1) {
+    switch (option) {
+    case 'p':
+      pflag++;
+      *ports_num = strdup(optarg);
+      break;
+    case 't':
+      tflag++;
+      *threads_num = strdup(optarg);
+      break;
+    case 'b':
+      bflag++;
+      *client_buff_num = strdup(optarg);
+    default:
+      print_usage();
+      exit(1);
+    }
+  }
+
+  // free if event of errors
+  if (!*ports_num || !*threads_num || !*client_buff_num) {
+    if (!*ports_num) {
+      if (*threads_num)
+        free(*threads_num);
+      if (*client_buff_num)
+        free(*client_buff_num);
+    }
+    if (!*threads_num) {
+      if (*ports_num)
+        free(*ports_num);
+      if (*client_buff_num)
+        free(*client_buff_num);
+    }
+    if (!*client_buff_num) {
+      if (*ports_num)
+        free(*ports_num);
+      if (*threads_num)
+        free(*threads_num);
+    }
+    print_usage();
+  }
+  // TODO: should I exit here or go back to calling function to do deallocation?
+}
+
 void parse_http_request(char *request_str, HttpRequest *request);
 void getHTTPReq(int fd, char **req);
 void doChildProcess(int fd, char **args, char **envp);
