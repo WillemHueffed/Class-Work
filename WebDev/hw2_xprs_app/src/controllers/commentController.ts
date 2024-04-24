@@ -73,6 +73,8 @@ export const get_comments = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  // TODO: the thign
+  console.log(req.oidc.user);
   const reviews = mongoDB.collection("reviews");
   try {
     const review = await reviews.findOne({ reviewID: req.params.reviewID });
