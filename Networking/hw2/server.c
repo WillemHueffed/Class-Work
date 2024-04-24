@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 // #define PORT "10485"
@@ -310,7 +311,13 @@ void send_msg(char *http_resp, int fd) {
 void alloc_http_msg(char **http_resp, char *body, char *status,
                     int content_length) {
   char *header = (char *)malloc(1000);
-  const char *date = "4/16/24";
+  char date[100];
+  time_t currentTime;
+  struct tm *localTime;
+  time(&currentTime);
+  localTime = gmtime(&currentTime);
+  strftime(date, sizeof(date), "Date: %a, %d %b %Y %H:%M:%S GMT\r\n",
+           localTime);
   const char *content_type = "text/html";
   snprintf(header, 1000,
            "HTTP/1.1 %s\r\n"
