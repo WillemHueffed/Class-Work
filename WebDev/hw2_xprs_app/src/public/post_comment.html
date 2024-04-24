@@ -21,6 +21,7 @@
           const reviewId = document.getElementById("reviewIdInput").value;
           const comment = document.getElementById("commentInput").value;
 
+          // TODO: why doesn't the private one work???
           const response = await fetch(
             `http://localhost:3001/reviews/${reviewId}/comments/pub`,
             //`http://localhost:3001/reviews/${reviewId}/comments`,

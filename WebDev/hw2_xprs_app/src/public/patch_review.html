@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Update Review</title>
+  </head>
+  <body>
+    <h1>Update Review</h1>
+    <label for="reviewIdInput">Enter Review ID:</label>
+    <input type="text" id="reviewIdInput" />
+    <label for="ratingInput">Enter New Rating (out of 5):</label>
+    <input type="number" id="ratingInput" min="1" max="5" />
+    <label for="descriptionInput">Enter New Description:</label>
+    <input type="text" id="descriptionInput" />
+    <button onclick="updateReview()">Update Review</button>
+
+    <div id="responseDisplay"></div>
+
+    <script>
+      async function updateReview() {
+        try {
+          const reviewId = document.getElementById("reviewIdInput").value;
+          const rating = document.getElementById("ratingInput").value;
+          const description = document.getElementById("descriptionInput").value;
+
+          const formData = new URLSearchParams();
+          if (rating) {
+            formData.append("rating", rating);
+          }
+          if (description) {
+            formData.append("description", description);
+          }
+
+          const response = await fetch(
+            `http://localhost:3001/reviews/${reviewId}/pub`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: formData,
+            },
+          );
+
+          const responseData = await response.text();
+          const responseDisplay = document.getElementById("responseDisplay");
+
+          if (response.ok) {
+            responseDisplay.textContent = `Review updated successfully!\nResponse: ${responseData}`;
+          } else {
+            responseDisplay.textContent = `Failed to update review: ${response.statusText}\nResponse: ${responseData}`;
+          }
+        } catch (error) {
+          console.error("Error updating review:", error);
+          const responseDisplay = document.getElementById("responseDisplay");
+          responseDisplay.textContent = `Error updating review: ${error.message}`;
+        }
+      }
+    </script>
+  </body>
+</html>
