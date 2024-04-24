@@ -4,9 +4,9 @@ import * as commentController from "../controllers/commentController";
 
 const router: Router = express.Router({ mergeParams: true });
 
-router.post("/", requiresAuth, commentController.create_comment);
+router.post("/", requiresAuth(), commentController.create_comment);
 router.post("/pub", commentController.create_comment);
-router.delete("/:commentID", requiresAuth, commentController.delete_comment);
+router.delete("/:commentID", requiresAuth(), commentController.delete_comment);
 router.delete("/:commentID/pub", commentController.delete_comment);
 router.get("/", commentController.get_comments);
 

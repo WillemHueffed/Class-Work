@@ -22,7 +22,7 @@
           const commentId = document.getElementById("commentIdInput").value;
 
           const response = await fetch(
-            `http://localhost:3001/reviews/${reviewId}/comments/${commentId}/pub`,
+            `http://localhost:3001/reviews/${reviewId}/comments/${commentId}`,
             {
               method: "DELETE",
             },
