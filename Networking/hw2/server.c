@@ -310,7 +310,7 @@ void send_msg(char *http_resp, int fd) {
 // TODO: This most definetly has memory leaks
 void alloc_http_msg(char **http_resp, char *body, char *status,
                     int content_length) {
-  char *header = (char *)malloc(1000);
+  char header[1000];
   char date[100];
   time_t currentTime;
   struct tm *localTime;
@@ -332,7 +332,6 @@ void alloc_http_msg(char **http_resp, char *body, char *status,
   // TODO: Check return vals
   strcpy(*http_resp, header);
   strcat(*http_resp, body);
-  free(header);
 }
 
 int mmap_file(const char *path, char **mapped) {
