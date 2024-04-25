@@ -15,7 +15,6 @@
           const response = await fetch("http://localhost:3000/authors");
           const authors = await response.json();
 
-          // Clear existing content
           const authorJSON = document.getElementById("authorJSON");
           authorJSON.textContent = JSON.stringify(authors, null, 2);
         } catch (error) {
@@ -23,7 +22,6 @@
         }
       }
 
-      // Call fetchAuthors function when the page loads
       window.onload = fetchAuthors;
     </script>
   </body>

@@ -13,14 +13,12 @@
     <pre id="reviewsJSON"></pre>
 
     <script>
-      // Function to fetch reviews when Enter key is pressed
       function handleKeyPress(event) {
         if (event.key === "Enter") {
           fetchReviews();
         }
       }
 
-      // Add event listener to input field
       document
         .getElementById("authorIdInput")
         .addEventListener("keypress", handleKeyPress);

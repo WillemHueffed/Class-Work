@@ -17,7 +17,9 @@ export const create_comment = async (
       return;
     }
 
-    const commentObj = new Comment(comment);
+    const userID = req.oidc.user?.sub;
+
+    const commentObj = new Comment(comment, userID);
     const reviews = mongoDB.collection("reviews");
     const result = await reviews.updateOne(
       { reviewID: reviewId },
@@ -43,19 +45,27 @@ export const delete_comment = async (
   try {
     const reviewId = req.params.reviewID;
     const commentId = req.params.commentID;
+    const userID = req.oidc.user?.sub;
 
     const reviews = mongoDB.collection("reviews");
+    //'console.log("commentid");
+    //console.log(commentId);
+    //console.log("userID");
+    //console.log(userID);
     const result = await reviews.updateOne(
       {
         reviewID: reviewId,
         "comments.commentID": commentId,
+        "comments.userID": userID,
       },
       {
         $pull: {
-          comments: { commentID: commentId },
+          comments: { commentID: commentId, userID: userID },
         } as PullOperator<Document>,
       },
     );
+
+    //console.log(result);
 
     if (result.matchedCount === 0) {
       res.status(404).json({ error: "Review or Comment not found" });

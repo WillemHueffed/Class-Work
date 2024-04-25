@@ -26,7 +26,6 @@ interface Book {
   editions: { ed_num: number; pub_date: string; id: string }[];
 }
 
-// TODO: Prevent user from creating multiple reviews for same book
 export const create_review = async (
   req: Request,
   res: Response,
@@ -51,12 +50,25 @@ export const create_review = async (
   console.log(books);
   const specifiedBook = books.find((book: Book) => book.id === bookID);
 
-  // Log the specified book if found
   if (!specifiedBook) {
     res.status(404).json({ error: "Book not found\n" });
     return;
   }
 
+  const reviewCollection = mongoDB.collection("reviews");
+
+  const userID = req.oidc.user?.sub;
+  const existingReview = await reviewCollection.findOne({
+    bookID: bookID,
+    userID: userID,
+  });
+
+  if (existingReview) {
+    res.status(400).json({ error: "User has already reviewed this book" });
+    return;
+  }
+
+  const username = req.oidc.user?.nickname;
   const { rating, description } = req.body;
   if (!rating || !description) {
     res
@@ -68,12 +80,12 @@ export const create_review = async (
     rating,
     description,
     bookID,
-    specifiedBook.authorID,
+    specifiedBook.id,
+    userID,
+    username,
   );
   try {
-    const reviewCollection = mongoDB.collection("reviews");
     const result = await reviewCollection.insertOne(review);
-    console.log(`A document was inserted with the _id: ${result.insertedId}`);
     res.status(201).json({
       message: "Review created successfully",
       insertedId: result.insertedId,
@@ -93,14 +105,14 @@ export const patch_review_by_id = async (
   console.log("in patch");
   const reviewID = req.params.reviewID;
   console.log(req.body);
-  const updateData: { rating?: string; description?: string } = {};
+  const updateData: { rating?: string; desc?: string } = {};
 
   const { rating, description } = req.body;
   if (rating) {
     updateData.rating = rating;
   }
   if (description) {
-    updateData.description = description;
+    updateData.desc = description;
   }
 
   if (!rating && !description) {
@@ -110,8 +122,9 @@ export const patch_review_by_id = async (
 
   try {
     const reviews = mongoDB.collection("reviews");
+    const userID = req.oidc.user?.sub;
     const result = await reviews.updateOne(
-      { reviewID: reviewID },
+      { reviewID: reviewID, userID: userID },
       { $set: updateData },
     );
 
