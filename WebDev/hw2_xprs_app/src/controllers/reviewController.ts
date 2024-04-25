@@ -97,7 +97,6 @@ export const create_review = async (
   }
 };
 
-// TODO Add protection so only author of review can update
 export const patch_review_by_id = async (
   req: Request,
   res: Response,
@@ -163,7 +162,6 @@ export const get_reviews_by_bookID = async (
   const bookID = req.params.bookID;
   const specifiedBook = books.find((book: Book) => book.id === bookID);
 
-  // Log the specified book if found
   if (!specifiedBook) {
     res.status(404).json({ error: "Book not found\n" });
     return;
