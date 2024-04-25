@@ -31,7 +31,7 @@ export const create_comment = async (
       return;
     }
 
-    res.status(200).json({ message: "Comment added successfully" });
+    res.status(201).json({ message: "Comment added successfully" });
   } catch (error) {
     console.error("Error adding comment to review:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -48,10 +48,6 @@ export const delete_comment = async (
     const userID = req.oidc.user?.sub;
 
     const reviews = mongoDB.collection("reviews");
-    //'console.log("commentid");
-    //console.log(commentId);
-    //console.log("userID");
-    //console.log(userID);
     const result = await reviews.updateOne(
       {
         reviewID: reviewId,
@@ -64,8 +60,6 @@ export const delete_comment = async (
         } as PullOperator<Document>,
       },
     );
-
-    //console.log(result);
 
     if (result.matchedCount === 0) {
       res.status(404).json({ error: "Review or Comment not found" });
@@ -83,8 +77,6 @@ export const get_comments = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  // TODO: the thign
-  console.log(req.oidc.user);
   const reviews = mongoDB.collection("reviews");
   try {
     const review = await reviews.findOne({ reviewID: req.params.reviewID });
