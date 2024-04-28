@@ -3,58 +3,40 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{
 //   bson::doc, options::ClientOptions, options::IndexOptions, Client, Collection, IndexModel,
 //};
-use mongodb::{options::ClientOptions, Client};
+use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
+use model::{Comment, Review};
 
-// This struct represents state
-struct AppState {
-    app_name: String,
-}
+const DB_NAME: &str = "WebDev";
+const COLL_NAME: &str = "reviews";
 
-#[get("/")]
-async fn index(data: web::Data<AppState>) -> String {
-    let app_name = &data.app_name; // <- get app_name
-    format!("Hello {app_name}!") // <- response with app_name
-}
-
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("hello world!")
-}
-
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
+#[get("/reviews")]
+async fn get_reviews(client: web::Data<client>, username: web::Path<string>) -> HttpResponse{
+    let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
+    // Retrieve documents from the collection
+    match collection.find(None, None).await {
+        Ok(cursor) => {
+            // Iterate over the documents and print them to the terminal
+            while let Some(doc) = cursor.next().await {
+                match doc {
+                    Ok(document) => println!("{:?}", document),
+                    Err(e) => eprintln!("Error reading document: {}", e),
+                }
+            }
+        }
+        Err(e) => eprintln!("Error retrieving documents from collection: {}", e),
+    }
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Parse a connection string into an options struct.
-    let mut client_options = ClientOptions::parse("mongodb://localhost:27017").await?;
+    let uri = std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017".into());
+    let client = Client::with_uri_str(uri).await.expect("failed to connected");
 
-    // Manually set an option.
-    client_options.app_name = Some("My App".to_string());
-
-    // Get a handle to the deployment.
-    let client = Client::with_options(client_options)?;
-
-    // List the names of the databases in that deployment.
-    for db_name in client.list_database_names(None, None).await? {
-        println!("{}", db_name);
-    }
-
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(AppState {
-                app_name: String::from("Actix Web"),
-            }))
-            .service(index)
-            .service(hello)
-            .service(echo)
-            .route("/hey", web::get().to(manual_hello))
+            .app_data(web::Data::new(client.clone()))
+            .service(get_reviews)
     })
     .bind(("localhost", 3002))?
     .run()
