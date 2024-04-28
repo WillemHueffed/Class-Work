@@ -4,27 +4,26 @@ mod model;
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
 use model::{Comment, Review};
 use actix_web::{get, web, App, HttpResponse, HttpServer};
-use mongodb::{bson::doc, Client, Collection, error::Error};
+use mongodb::{bson::doc, options::FindOptions, Client, Collection, error::Error};
 use futures::stream::StreamExt;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
 
-#[get("/reviews")]
-async fn get_reviews(client: web::Data<Client>, username: web::Path<String>) -> HttpResponse{
+#[get("/reviews/byAuthor/{id}")]
+async fn get_reviews(client: web::Data<Client>, id: web::Path<String>) -> HttpResponse{
+    let id = id.into_inner();
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
-    match collection.find(None, None).await {
-        Ok(cursor) => {
-            while let Some(doc) = cursor.next().await {
-                match doc {
-                    Ok(document) => println!("{:?}", document),
-                    Err(e) => eprintln!("Error reading document: {}", e),
-                }
-            }
+    match collection
+        .find_one(doc! { "review_id": &id}, None)
+        .await
+    {
+        Ok(Some(user)) => HttpResponse::Ok().json(user),
+        Ok(None) => {
+            HttpResponse::NotFound().body(format!("No user found with username {id}"))
         }
-        Err(e) => eprintln!("Error retrieving documents from collection: {}", e),
-    } 
-    HttpResponse::Ok().finish()
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
 }
 
 #[actix_web::main]

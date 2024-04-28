@@ -8,6 +8,8 @@ pub struct Comment{
   pub user_id: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+
 pub struct Review{
   rating: i32,
   desc: String,
