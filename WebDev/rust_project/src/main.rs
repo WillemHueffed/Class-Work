@@ -1,21 +1,20 @@
 mod model;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-//use mongodb::{
-//   bson::doc, options::ClientOptions, options::IndexOptions, Client, Collection, IndexModel,
-//};
-use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
+
+//use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+//use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
 use model::{Comment, Review};
+use actix_web::{get, web, App, HttpResponse, HttpServer};
+use mongodb::{bson::doc, Client, Collection, error::Error};
+use futures::stream::StreamExt;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
 
 #[get("/reviews")]
-async fn get_reviews(client: web::Data<client>, username: web::Path<string>) -> HttpResponse{
+async fn get_reviews(client: web::Data<Client>, username: web::Path<String>) -> HttpResponse{
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
-    // Retrieve documents from the collection
     match collection.find(None, None).await {
         Ok(cursor) => {
-            // Iterate over the documents and print them to the terminal
             while let Some(doc) = cursor.next().await {
                 match doc {
                     Ok(document) => println!("{:?}", document),
@@ -24,7 +23,8 @@ async fn get_reviews(client: web::Data<client>, username: web::Path<string>) -> 
             }
         }
         Err(e) => eprintln!("Error retrieving documents from collection: {}", e),
-    }
+    } 
+    HttpResponse::Ok().finish()
 }
 
 #[actix_web::main]
