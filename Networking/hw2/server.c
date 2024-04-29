@@ -50,7 +50,8 @@ sem_t semEmpty;
 sem_t semFull;
 pthread_mutex_t mutexBuffer;
 file_descriptors *buffer[BUFFER_SIZE];
-int buff_count = 0;
+int front = 0;
+int back = 0;
 
 void print_usage() {
   perror("Error: call the script like \"./server [-p port] [-t threads] [-b "
@@ -167,8 +168,8 @@ int main() {
     fds->conn_fd = new_fd;
     sem_wait(&semEmpty);
     pthread_mutex_lock(&mutexBuffer);
-    buffer[buff_count] = fds;
-    buff_count++;
+    buffer[back] = fds;
+    back = (back + 1) % BUFFER_SIZE;
     pthread_mutex_unlock(&mutexBuffer);
     sem_post(&semFull);
   }
@@ -467,7 +468,8 @@ void *consumer(void *args) {
   while (1) {
     sem_wait(&semFull);
     pthread_mutex_lock(&mutexBuffer);
-    file_descriptors *fds = buffer[buff_count - 1];
+    file_descriptors *fds = buffer[front];
+    front = (front + 1) % BUFFER_SIZE;
     pthread_mutex_unlock(&mutexBuffer);
     sem_post(&semEmpty);
 
