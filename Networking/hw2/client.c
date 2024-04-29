@@ -85,7 +85,7 @@ void extract_host_path(char *server, char **host, char **path) {
     *path = strdup(del);
 
   } else {
-    perror("Delimiter not found in the URL\n");
+    printf("Delimiter not found in the URL\n");
     exit(1);
   }
 }
