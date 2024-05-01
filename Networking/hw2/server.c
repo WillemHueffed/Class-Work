@@ -444,7 +444,6 @@ void *consumer(void *args) {
       char *status = "501";
       alloc_http_msg(&resp, msg, status, strlen(msg));
       send_msg(resp, fds->conn_fd);
-      printf("get\n");
       free(resp);
       continue;
     }
