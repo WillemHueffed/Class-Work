@@ -17,15 +17,15 @@
 #include <time.h>
 #include <unistd.h>
 
-// #define PORT "10485"
-#define PORT "10488"
-#define BACKLOG 20
 #define MAXDATASIZE 1000
 #define MAX_METHOD_LEN 10
 #define MAX_PATH_LEN 100
 #define MAX_VERSION_LEN 10
-#define THREAD_NUM 10
 #define BUFFER_SIZE 25
+
+char *port = "-1";
+int backlog = -1;
+int thread_num = -1;
 
 typedef struct {
   char *key;
@@ -50,74 +50,12 @@ sem_t semEmpty;
 sem_t semFull;
 pthread_mutex_t mutexBuffer;
 file_descriptors *buffer[BUFFER_SIZE];
-int buff_count = 0;
-
-void print_usage() {
-  perror("Error: call the script like \"./server [-p port] [-t threads] [-b "
-         "buffers]\"\n");
-}
+int front = 0;
+int back = 0;
 
 void parse_command_line(int argc, char **argv, char **ports_num,
-                        char **threads_num, char **client_buff_num) {
-  if (argc != 7) {
-    print_usage();
-    exit(1);
-  }
-  int option;
-  int pflag = 0;
-  int tflag = 0;
-  int bflag = 0;
-  // char *server;
-  // char *port;
-
-  *ports_num = NULL;
-  *threads_num = NULL;
-  *client_buff_num = NULL;
-
-  while ((option = getopt(argc, argv, "p:t:b:")) != -1) {
-    switch (option) {
-    case 'p':
-      pflag++;
-      *ports_num = strdup(optarg);
-      break;
-    case 't':
-      tflag++;
-      *threads_num = strdup(optarg);
-      break;
-    case 'b':
-      bflag++;
-      *client_buff_num = strdup(optarg);
-    default:
-      print_usage();
-      exit(1);
-    }
-  }
-
-  // free if event of errors
-  if (!*ports_num || !*threads_num || !*client_buff_num) {
-    if (!*ports_num) {
-      if (*threads_num)
-        free(*threads_num);
-      if (*client_buff_num)
-        free(*client_buff_num);
-    }
-    if (!*threads_num) {
-      if (*ports_num)
-        free(*ports_num);
-      if (*client_buff_num)
-        free(*client_buff_num);
-    }
-    if (!*client_buff_num) {
-      if (*ports_num)
-        free(*ports_num);
-      if (*threads_num)
-        free(*threads_num);
-    }
-    print_usage();
-  }
-  // TODO: should I exit here or go back to calling function to do deallocation?
-}
-
+                        char **threads_num, char **client_buff_num);
+void print_usage();
 void parse_http_request(char *request_str, HttpRequest *request);
 void getHTTPReq(int fd, char **req);
 void doChildProcess(int fd, char **args, char **envp);
@@ -131,13 +69,32 @@ int has_adjacent_periods(const char *);
 void serve_static(int fd, HttpRequest *req);
 void *consumer(void *);
 
-int main() {
+int main(int argc, char **argv) {
+
+  char *port_num_ascii;
+  char *threads_num_ascii;
+  char *client_buff_num_ascii;
+  parse_command_line(argc, argv, &port_num_ascii, &threads_num_ascii,
+                     &client_buff_num_ascii);
+  // TODO: Remove when done debugging
+  // printf("port num is %s\n", port_num);
+  // printf("threads_num is %s\n", threads_num);
+  // printf("client_buff_num is %s\n", client_buff_num);
+
+  port = strdup(port_num_ascii);
+  thread_num = atoi(threads_num_ascii);
+  backlog = atoi(client_buff_num_ascii);
+
+  free(port_num_ascii);
+  free(threads_num_ascii);
+  free(client_buff_num_ascii);
+
   pthread_mutex_init(&mutexBuffer, NULL);
   sem_init(&semEmpty, 0, BUFFER_SIZE);
   sem_init(&semFull, 0, 0);
-  pthread_t th[THREAD_NUM];
+  pthread_t th[thread_num];
 
-  for (int i = 0; i < THREAD_NUM; i++) {
+  for (int i = 0; i < thread_num; i++) {
     if (pthread_create(&th[i], NULL, &consumer, NULL) != 0) {
       perror("Failed to create thread");
       exit(1);
@@ -167,13 +124,13 @@ int main() {
     fds->conn_fd = new_fd;
     sem_wait(&semEmpty);
     pthread_mutex_lock(&mutexBuffer);
-    buffer[buff_count] = fds;
-    buff_count++;
+    buffer[back] = fds;
+    back = (back + 1) % BUFFER_SIZE;
     pthread_mutex_unlock(&mutexBuffer);
     sem_post(&semFull);
   }
 
-  for (int i = 0; i < THREAD_NUM; i++) {
+  for (int i = 0; i < thread_num; i++) {
     if (pthread_join(th[i], NULL) != 0) {
       perror("Failed to join thread\n");
     }
@@ -213,7 +170,7 @@ void setup(int *sockfd) {
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+  if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     exit(1);
   }
@@ -245,12 +202,12 @@ void setup(int *sockfd) {
     exit(1);
   }
 
-  if (listen(*sockfd, BACKLOG) == -1) {
+  if (listen(*sockfd, backlog) == -1) {
     perror("listen");
     exit(1);
   }
 
-  printf("Listening on port %s\n", PORT);
+  printf("Listening on port %s\n", port);
 
   sa.sa_handler = sigchld_handler;
   sigemptyset(&sa.sa_mask);
@@ -467,7 +424,8 @@ void *consumer(void *args) {
   while (1) {
     sem_wait(&semFull);
     pthread_mutex_lock(&mutexBuffer);
-    file_descriptors *fds = buffer[buff_count - 1];
+    file_descriptors *fds = buffer[front];
+    front = (front + 1) % BUFFER_SIZE;
     pthread_mutex_unlock(&mutexBuffer);
     sem_post(&semEmpty);
 
@@ -547,4 +505,71 @@ void *consumer(void *args) {
       free(req.version);
     free(fds);
   }
+}
+
+void print_usage() {
+  printf("Error: call the script like \"./server [-p port] [-t threads] [-b "
+         "buffers]\"\n");
+}
+
+void parse_command_line(int argc, char **argv, char **ports_num,
+                        char **threads_num, char **client_buff_num) {
+  if (argc != 7) {
+    print_usage();
+    exit(1);
+  }
+  int option;
+  int pflag = 0;
+  int tflag = 0;
+  int bflag = 0;
+  // char *server;
+  // char *port;
+
+  *ports_num = NULL;
+  *threads_num = NULL;
+  *client_buff_num = NULL;
+
+  while ((option = getopt(argc, argv, "p:t:b:")) != -1) {
+    switch (option) {
+    case 'p':
+      pflag++;
+      *ports_num = strdup(optarg);
+      break;
+    case 't':
+      tflag++;
+      *threads_num = strdup(optarg);
+      break;
+    case 'b':
+      bflag++;
+      *client_buff_num = strdup(optarg);
+      break;
+    default:
+      print_usage();
+      exit(1);
+    }
+  }
+
+  // free if event of errors
+  if (!*ports_num || !*threads_num || !*client_buff_num) {
+    if (!*ports_num) {
+      if (*threads_num)
+        free(*threads_num);
+      if (*client_buff_num)
+        free(*client_buff_num);
+    }
+    if (!*threads_num) {
+      if (*ports_num)
+        free(*ports_num);
+      if (*client_buff_num)
+        free(*client_buff_num);
+    }
+    if (!*client_buff_num) {
+      if (*ports_num)
+        free(*ports_num);
+      if (*threads_num)
+        free(*threads_num);
+    }
+    print_usage();
+  }
+  // TODO: should I exit here or go back to calling function to do deallocation?
 }
