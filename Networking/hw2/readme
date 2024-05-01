@@ -1,0 +1,6 @@
+strengths:
+implements everything the doc asks for (to the best of my understanding)
+
+weaknesses:
+nothing critical. Maybe memory leaks? I've fixed all leaks I've come across but there may be some I'm unaware of.
+The design of the program is also kind of verbose => weak code reuse.

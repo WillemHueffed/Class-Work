@@ -297,7 +297,8 @@ int mmap_file(const char *path, char **mapped) {
   struct stat sb;
   fd = open(path, O_RDONLY);
   if (fd == -1) {
-    perror("file open");
+    // perror("file open"); // Assuming this should be commented out so it
+    // doesn't look like a debug message???
     return 1;
   }
   if (fstat(fd, &sb) == -1) {
