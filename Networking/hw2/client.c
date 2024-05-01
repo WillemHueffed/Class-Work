@@ -73,6 +73,7 @@ void setup(int *sockfd, char *hostname, char *port) {
   }
 }
 
+// Not needed misunderstood assignment
 void extract_host_path(char *server, char **host, char **path) {
   char *del = strchr(server, '/');
   if (del != NULL) {
@@ -138,8 +139,11 @@ int main(int argc, char **argv) {
   }
 
   char *hostname;
-  char *path;
-  extract_host_path(server, &hostname, &path);
+  char path[MAXDATASIZE];
+  printf("Please enter the path to the resource you wish to access\n");
+  scanf("%s", path);
+
+  // extract_host_path(server, &hostname, &path);
   char *req;
   compose_http_req(&req, path, hostname);
 
@@ -149,7 +153,6 @@ int main(int argc, char **argv) {
 
   setup(&sockfd, hostname, port);
   free(hostname);
-  free(path);
   // at this point the only thing on heap should be the http req
 
   int bytes_sent = 0;
