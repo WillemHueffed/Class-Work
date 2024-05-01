@@ -96,12 +96,15 @@ void print_usage() {
 }
 
 void compose_http_req(char **msg, const char *path, const char *hostname) {
-  char buf[5000];
+  char buf[MAXDATASIZE];
+  char path_buf[MAXDATASIZE / 2]; // silence warning
+  strcpy(path_buf, "/");
+  strcat(path_buf, path);
   sprintf(buf,
           "GET %s HTTP/1.1\r\n"
           "Host: %s\r\n"
           "\r\n",
-          path, hostname);
+          path_buf, hostname);
   *msg = strdup(buf);
 }
 
@@ -138,21 +141,21 @@ int main(int argc, char **argv) {
     free(port);
   }
 
-  char *hostname;
   char path[MAXDATASIZE];
   printf("Please enter the path to the resource you wish to access\n");
   scanf("%s", path);
 
   // extract_host_path(server, &hostname, &path);
   char *req;
-  compose_http_req(&req, path, hostname);
+  compose_http_req(&req, path, server);
 
   int sockfd;
   int numbytes;
   char buf[MAXDATASIZE];
 
-  setup(&sockfd, hostname, port);
-  free(hostname);
+  setup(&sockfd, server, port);
+  free(server);
+  free(port);
   // at this point the only thing on heap should be the http req
 
   int bytes_sent = 0;
