@@ -208,6 +208,7 @@ void setup(int *sockfd) {
   }
 
   printf("Listening on port %s\n", port);
+  free(port);
 
   sa.sa_handler = sigchld_handler;
   sigemptyset(&sa.sa_mask);

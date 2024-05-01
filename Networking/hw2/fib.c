@@ -75,10 +75,11 @@ int main() {
 
   if (!strcmp(unp_args, "NULL")) {
     char *e_msg = "error args null\n";
-    char *status = "200 OK";
+    char *status = "400 Bad Request";
     char *http_resp;
     alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
     printf("%s", http_resp);
+    free(http_resp);
     exit(1);
   }
 
@@ -114,6 +115,14 @@ int main() {
     char *http_resp;
     alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
     printf("%s", http_resp);
+    for (int i = 0; args[i]; i++) {
+      if (args[i]->key)
+        free(args[i]->key);
+      if (args[i]->val)
+        free(args[i]->val);
+    }
+    free(args);
+    free(http_resp);
     exit(1);
   }
 
@@ -137,6 +146,16 @@ int main() {
     char *http_resp;
     alloc_http_msg(&http_resp, e_msg, status, strlen(e_msg));
     printf("%s", http_resp);
+    free(n);
+    free(user);
+    free(http_resp);
+    for (int i = 0; args[i]; i++) {
+      if (args[i]->key)
+        free(args[i]->key);
+      if (args[i]->val)
+        free(args[i]->val);
+    }
+    free(args);
     exit(1);
   }
 
@@ -160,5 +179,14 @@ int main() {
     perror("unsetenv");
     return 1;
   }
+  free(n);
+  free(user);
+  for (int i = 0; args[i]; i++) {
+    if (args[i]->key)
+      free(args[i]->key);
+    if (args[i]->val)
+      free(args[i]->val);
+  }
+  free(args);
   return 0;
 }
