@@ -2,10 +2,9 @@ mod model;
 
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
-use futures::stream::{StreamExt, TryStreamExt};
-use model::{Comment, Review};
-use mongodb::{bson::doc, error::Error, options::FindOptions, Client, Collection};
+use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer};
+use model::{Comment, PostReview, Review};
+use mongodb::{bson::doc, Client, Collection};
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
@@ -22,12 +21,37 @@ async fn get_reviews(client: web::Data<Client>, id: web::Path<String>) -> HttpRe
 }
 
 #[get("/")]
-async fn hello_world(client: web::Data<Client>) -> HttpResponse {
+async fn post_comment(client: web::Data<Client>) -> HttpResponse {
     let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
     let mut cursor = collection.find(doc! {}, None).await.expect("REASON");
+    let mut reviews: Vec<Review> = Vec::new();
     while cursor.advance().await.expect("reason") {
-        println!("{:?}", cursor.deserialize_current());
+        let review: Review = cursor.deserialize_current().unwrap();
+        println!("{:?}", review);
+        reviews.push(review);
+        //println!("{:?}", cursor.deserialize_current().unwrap());
     }
+    HttpResponse::Ok().json(reviews)
+}
+
+#[post("/reviews/{bookID}")]
+async fn create_review(
+    path: web::Path<String>,
+    info: web::Json<PostReview>,
+    _mongo_client: web::Data<Client>,
+) -> HttpResponse {
+    //let _collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
+    let book_id = path.into_inner();
+    let desc = &info.description;
+    let rating = &info.rating;
+    println!("{:?}", book_id);
+    println!("{:?}", desc);
+    println!("{:?}", rating);
+
+    let res = reqwest::get("http://localhost:3000/books").await;
+    let res_body = res.unwrap().text().await.unwrap();
+    println!("{:?}", res_body);
+
     HttpResponse::Ok().into()
 }
 
@@ -43,7 +67,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(client.clone()))
             .service(get_reviews)
-            .service(hello_world)
+            .service(create_review)
     })
     .bind(("localhost", 3002))?
     .run()

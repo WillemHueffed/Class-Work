@@ -13,5 +13,6 @@ features = ["async-std-runtime"]
 [dependencies]
 actix-web = "4"
 futures = "0.3"
-serde = { version = "1.0.199", features = ["derive"] }
+serde = { version = "1.0.200", features = ["derive"] }
 serde_json = "0.9.10" 
+reqwest = { version = "0.12.4", features = ["blocking"] } 

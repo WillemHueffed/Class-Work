@@ -22,3 +22,9 @@ pub struct Review {
     pub userID: String,
     pub username: String,
 }
+
+#[derive(Deserialize)]
+pub struct PostReview {
+    pub description: String,
+    pub rating: String,
+}

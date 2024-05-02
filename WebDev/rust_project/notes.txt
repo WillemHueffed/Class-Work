@@ -1,0 +1,37 @@
+1. Post a review for a book, consisting of a rating and some text commenting on the book. A user can only post a review 
+   if the book exists in the service from homework 1, the user is logged in, 
+   and the user has not already written a review for the book.
+
+   POST localhost:3000/reviews/
+
+
+2. Edit the rating and/or text of an existing review. A user can only edit a review that they posted.
+
+   PATCH localhost:3000/reviews/:reviewID
+
+
+3. Post a plain text comment about a review. A user can only post a comment if the user is logged in.
+
+   POST localhost:3000/reviews/:reviewID/comments
+
+
+4. Delete a comment. A user can only delete a comment they made.
+
+   DELETE localhost:3000/reviews/:reviewID/comments/:commentID
+
+
+5. List all of the reviews for a specific book. Each entry in the list should contain the rating and text of the review 
+   as well as the username of the user who posted the review. The user does not need to be logged in to do this.
+
+   GET localhost:3000/reviews/:reviewID
+
+
+6. List all of the reviews for a specific author. This should return the same information as 
+   the previous endpoint except for all the books written by the author.
+
+   GET localhost:3000/reviews/byAuthor/:authorID
+
+
+7. List all of the comments for a specific review. The user does not need to be logged in to do this.
+
+   GET localhost:3000/reviews/:reviewID/comments
