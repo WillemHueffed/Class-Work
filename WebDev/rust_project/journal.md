@@ -12,3 +12,6 @@ at a high level so there are some conecepts/documenation I need to look into...
 - the doc! maco
 - serde package
 - future package
+
+# 5/2
+Found a guide for integrating auth0 with actix: https://auth0.com/blog/build-an-api-in-rust-with-jwt-authentication-using-actix-web/
