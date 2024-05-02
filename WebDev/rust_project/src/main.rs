@@ -3,7 +3,7 @@ mod model;
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
 use model::{Comment, Review};
-use actix_web::{get, web, App, HttpResponse, HttpServer};
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use mongodb::{bson::doc, options::FindOptions, Client, Collection, error::Error};
 use futures::stream::StreamExt;
 
@@ -26,6 +26,11 @@ async fn get_reviews(client: web::Data<Client>, id: web::Path<String>) -> HttpRe
     }
 }
 
+#[get("/")]
+async fn hello_world() -> impl Responder{
+    HttpResponse::Ok().body("hello world\n")
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Parse a connection string into an options struct.
@@ -36,6 +41,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(client.clone()))
             .service(get_reviews)
+            .service(hello_world)
     })
     .bind(("localhost", 3002))?
     .run()
