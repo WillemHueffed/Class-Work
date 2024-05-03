@@ -2,9 +2,12 @@ mod model;
 
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
-use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer};
-use model::{Comment, PostReview, Review};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer};
+use model::{Book, PostReview, Review};
 use mongodb::{bson::doc, Client, Collection};
+use serde_json::json;
+use uuid::Uuid;
+//use serde::Deserialize;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
@@ -38,21 +41,49 @@ async fn post_comment(client: web::Data<Client>) -> HttpResponse {
 async fn create_review(
     path: web::Path<String>,
     info: web::Json<PostReview>,
-    _mongo_client: web::Data<Client>,
+    mongo_client: web::Data<Client>,
 ) -> HttpResponse {
-    //let _collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
     let book_id = path.into_inner();
     let desc = &info.description;
     let rating = &info.rating;
-    println!("{:?}", book_id);
-    println!("{:?}", desc);
-    println!("{:?}", rating);
 
     let res = reqwest::get("http://localhost:3000/books").await;
     let res_body = res.unwrap().text().await.unwrap();
-    println!("{:?}", res_body);
+    let books: Vec<Book> = serde_json::from_str(&res_body.to_string()).unwrap();
 
-    HttpResponse::Ok().into()
+    let mut author_id = "";
+    if let Some(book) = books.iter().find(|book| book.id == book_id) {
+        author_id = &book.p_auth.id;
+    } else {
+        return HttpResponse::NotFound().json(json!({ "error": "Book not found" }));
+    }
+    println!("Book with id {} found!", book_id);
+
+    let review_id = Uuid::new_v4();
+
+    let review = Review {
+        rating: rating.to_string(),
+        desc: desc.to_string(),
+        bookID: book_id,
+        reviewID: review_id.to_string(),
+        comments: Vec::new(),
+        username: "wip".to_string(),
+        userID: "wip".to_string(),
+        authorID: author_id.to_string(),
+    };
+
+    let collection = mongo_client
+        .database(DB_NAME)
+        .collection::<Review>(COLL_NAME);
+
+    let insert_res = collection.insert_one(review, None).await;
+
+    if insert_res.is_err() {
+        return HttpResponse::InternalServerError()
+            .json(json!({ "error": "Internal server error - DB issue"}));
+    }
+
+    HttpResponse::Created().json(json!({ "reviewID": review_id}))
 }
 
 #[actix_web::main]

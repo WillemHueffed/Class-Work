@@ -23,7 +23,34 @@ pub struct Review {
     pub username: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Edition {
+    pub ed_num: i32,
+    pub pub_date: String,
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Author {
+    pub name: String,
+    pub bio: String,
+    pub bday: String,
+    pub genre: String,
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Book {
+    pub title: String,
+    pub subtitle: String,
+    pub org_pub_date: String,
+    pub tags: Vec<String>,
+    pub p_auth: Author,
+    pub id: String,
+    pub editions: Vec<Edition>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct PostReview {
     pub description: String,
     pub rating: String,
