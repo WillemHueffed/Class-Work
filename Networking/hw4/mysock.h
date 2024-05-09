@@ -11,9 +11,8 @@
 #error need to define uint32_t
 #endif
 
-#include <sys/types.h>
 #include <sys/socket.h>
-
+#include <sys/types.h>
 
 #ifndef FALSE
 #define FALSE 0
@@ -24,22 +23,20 @@
 #endif
 
 typedef int bool_t;
-typedef int mysocket_t;     /* mysocket descriptor */
-
+typedef int mysocket_t; /* mysocket descriptor */
 
 /* maximum number of mysockets per process */
 #define MAX_NUM_CONNECTIONS 64
 
 #if (MAX_NUM_CONNECTIONS & (MAX_NUM_CONNECTIONS - 1)) != 0
-    #error MAX_NUM_CONNECTIONS should be a power of two
+#error MAX_NUM_CONNECTIONS should be a power of two
 #endif
-
 
 extern mysocket_t mysocket();
 extern int mybind(mysocket_t sd, struct sockaddr *addr, int addrlen);
 extern int mylisten(mysocket_t sd, int backlog);
-extern int myconnect(mysocket_t sd, struct sockaddr* name, int namelen);
-extern int myaccept(mysocket_t sd, struct sockaddr* addr, int *addrlen);
+extern int myconnect(mysocket_t sd, struct sockaddr *name, int namelen);
+extern int myaccept(mysocket_t sd, struct sockaddr *addr, int *addrlen);
 extern int myclose(mysocket_t sd);
 extern int myread(mysocket_t sd, void *buffer, size_t length);
 extern int mywrite(mysocket_t sd, const void *buffer, size_t length);
@@ -53,5 +50,4 @@ extern int mygetpeername(mysocket_t sd, struct sockaddr *addr,
  */
 extern uint32_t mylocalip(uint32_t peer_addr);
 
-#endif  /* __MYSOCK_H__ */
-
+#endif /* __MYSOCK_H__ */
