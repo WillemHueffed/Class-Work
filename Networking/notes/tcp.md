@@ -90,3 +90,13 @@
 - Subject to: BDP, recv window size, current network congestion (congestion window size -> abstraction) => take the min of these three
     - In slides current network congestion was represented as a router with a higher incoming bandwidth than outgoing bandwidth
         - The BDP implied the opposite of what was truly the limiting factor (see slides if future me is confused)
+
+# Closing TCP connection
+- Before sending FIN A needs to make sure the sliding window data has been sent
+- A sends FIN
+- B sends back ACK
+- B sends a FIN
+- A sends back an ACK
+- After A sends back the ACK it has a delay window/timeout period, if B doesn't send anything back then we assume we're good to go and close the connection
+
+
