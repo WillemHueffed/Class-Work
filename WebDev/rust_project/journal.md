@@ -12,3 +12,10 @@ at a high level so there are some conecepts/documenation I need to look into...
 - the doc! maco
 - serde package
 - future package
+
+# 5/2
+Found a guide for integrating auth0 with actix: https://auth0.com/blog/build-an-api-in-rust-with-jwt-authentication-using-actix-web/
+Played around with the source code and looked at more technical documentation: https://docs.rs/mongodb/2.0.0/mongodb/struct.Cursor.html, https://www.mongodb.com/docs/drivers/rust/current/fundamentals/crud/read-operations/cursor/. Managed to get DB reads working.
+
+Via a little GPT and checking the actix-web docs I got path extraction and request body extraction working. Also, the autocomplete descriptions from the rust LSP help a ton when
+trying to work with the type system.
