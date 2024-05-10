@@ -27,8 +27,8 @@ typedef struct {
 
   int connection_state; /* state of the connection (established, etc.) */
   tcp_seq initial_sequence_num;
-
-  tcp_seq snd_seq_num;
+  tcp_seq send_seq_num;
+  tcp_seq recv_seq_num;
 
   /* any other connection-wide global variables go here */
 } context_t;
@@ -46,21 +46,75 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   ctx = (context_t *)calloc(1, sizeof(context_t));
   assert(ctx);
 
-  // generate_initial_seq_num(ctx);
+  generate_initial_seq_num(ctx);
 
   if (is_active) {
-    STCPHeader header;
-    header.th_seq = 1;
-    header.th_ack = 1;
-    header.th_off = 5;
-    header.th_flags = TH_SYN;
-    header.th_win = 3072;
-    stcp_network_send(sd, &header, sizeof(STCPHeader), NULL);
-  } else {
-    STCPHeader header;
-    stcp_network_recv(sd, &header, sizeof(STCPHeader));
-  }
+    STCPHeader SYNpacket;
+    SYNpacket.th_seq = ctx->initial_sequence_num;
+    ctx->send_seq_num = ctx->initial_sequence_num;
+    SYNpacket.th_off = 5;
+    SYNpacket.th_flags = TH_SYN;
+    SYNpacket.th_win = 3072;
+    printf("err1");
+    int status = stcp_network_send(sd, &SYNpacket, sizeof(STCPHeader));
+    if (status == -1) {
+      perror("send");
+    }
+    ctx->send_seq_num++;
 
+    STCPHeader activeRcvPacket;
+    printf("err2");
+    status = stcp_network_recv(sd, &activeRcvPacket, sizeof(STCPHeader));
+    if (status == -1) {
+      perror("recv");
+    }
+    // check for if SYN
+    ctx->recv_seq_num = activeRcvPacket.th_seq++;
+
+    STCPHeader ACKpacket;
+    ACKpacket.th_seq = ctx->send_seq_num;
+    ACKpacket.th_ack = ctx->recv_seq_num;
+    ctx->send_seq_num++;
+    ACKpacket.th_off = 5;
+    ACKpacket.th_flags = TH_ACK;
+    ACKpacket.th_win = 3072;
+    printf("err3");
+    status = stcp_network_send(sd, &ACKpacket, sizeof(STCPHeader));
+    if (status == -1) {
+      perror("send");
+    }
+  } else {
+    STCPHeader passiveRcvPacket;
+    printf("err4");
+    int status = stcp_network_recv(sd, &passiveRcvPacket, sizeof(STCPHeader));
+    if (status == -1) {
+      perror("recv");
+    }
+    ctx->recv_seq_num = passiveRcvPacket.th_seq++;
+    // check if syn maybe
+
+    STCPHeader SYN_ACKpacket;
+    SYN_ACKpacket.th_seq = ctx->initial_sequence_num;
+    ctx->send_seq_num = ctx->initial_sequence_num;
+    SYN_ACKpacket.th_off = 5;
+    SYN_ACKpacket.th_flags = TH_SYN | TH_ACK;
+    SYN_ACKpacket.th_win = 3072;
+    printf("err5");
+    status = stcp_network_send(sd, &SYN_ACKpacket, sizeof(STCPHeader));
+    if (status == -1) {
+      perror("send");
+    }
+    ctx->send_seq_num++;
+
+    STCPHeader finalACKpacket;
+    printf("err6");
+    status = stcp_network_recv(sd, &finalACKpacket, sizeof(STCPHeader));
+    if (status == -1) {
+      perror("recv");
+    }
+    ctx->recv_seq_num = finalACKpacket.th_seq++;
+    printf("end of ack");
+  }
   /* XXX: you should send a SYN packet here if is_active, or wait for one
    * to arrive if !is_active.  after the handshake completes, unblock the
    * application with stcp_unblock_application(sd).  you may also use
@@ -85,9 +139,8 @@ static void generate_initial_seq_num(context_t *ctx) {
   /* please don't change this! */
   ctx->initial_sequence_num = 1;
 #else
-  /* you have to fill this up */
-  /*ctx->initial_sequence_num =;*/
-  ctx->snd_seq_num = 1;
+  int seq_num = rand() % 255;
+  ctx->initial_sequence_num = seq_num;
 #endif
 }
 
