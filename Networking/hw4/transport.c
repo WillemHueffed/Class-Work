@@ -50,11 +50,12 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
   if (is_active) {
     STCPHeader header;
-    header.th_seq = ctx->snd_seq_num;
-    // header.th_ack = 1;
+    header.th_seq = 1;
+    header.th_ack = 1;
     header.th_off = 5;
     header.th_flags = TH_SYN;
-    stcp_network_send(sd, &header, sizeof(STCPHeader));
+    header.th_win = 3072;
+    stcp_network_send(sd, &header, sizeof(STCPHeader), NULL);
   } else {
     STCPHeader header;
     stcp_network_recv(sd, &header, sizeof(STCPHeader));
