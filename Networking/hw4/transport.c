@@ -20,7 +20,12 @@
 #include <string.h>
 #include <time.h>
 
-enum { CSTATE_ESTABLISHED }; /* you should have more states */
+enum {
+  CSTATE_ESTABLISHED,
+  SYN_SENT,
+  LISTEN,
+  SYN_RECEIVED
+}; /* you should have more states */
 
 #define WINDOW_SIZE 3072
 
@@ -46,6 +51,7 @@ typedef struct {
 
 static void generate_initial_seq_num(context_t *ctx);
 static void control_loop(mysocket_t sd, context_t *ctx);
+void our_dprintf(const char *format, ...);
 
 /* initialise the transport layer, and start the main loop, handling
  * any data from the peer or the application.  this function should not
@@ -69,32 +75,33 @@ void transport_init(mysocket_t sd, bool_t is_active) {
     hdr.th_seq = htonl(ctx->initial_sequence_num);
     ctx->snd_seq = ctx->initial_sequence_num + 1;
     stcp_network_send(sd, &hdr, sizeof(STCPHeader), NULL);
+    ctx->connection_state = SYN_SENT;
 
-    // receive SYNACK
+    // reveive SYNACK
     memset(&hdr, 0, sizeof(STCPHeader));
-    printf("at recv\n");
+    our_dprintf("waiting for synack\n");
+    int event = stcp_wait_for_event(sd, NETWORK_DATA, NULL);
     stcp_network_recv(sd, &hdr, sizeof(STCPHeader));
-    printf("past recv\n");
+
+    our_dprintf("client finished handshake\n");
 
   } else if (!is_active) {
-    // receive SYN
-    printf("receiving data\n");
+    our_dprintf("in server side\n");
+    // Recieve SYN
+    ctx->connection_state = LISTEN;
+    int event = stcp_wait_for_event(sd, NETWORK_DATA, NULL);
     stcp_network_recv(sd, &hdr, sizeof(STCPHeader));
-    printf("data succsessfully received\n");
-    int ack_num = ntohl(hdr.th_seq) + 1;
 
+    // Send SYNACK
     memset(&hdr, 0, sizeof(STCPHeader));
-
-    hdr.th_flags |= TH_SYN | TH_ACK;
+    hdr.th_flags |= TH_ACK | TH_SYN;
     hdr.th_off = 5;
     hdr.th_win = htons(WINDOW_SIZE);
     hdr.th_seq = htonl(ctx->initial_sequence_num);
-    hdr.th_ack = htonl(ack_num);
     ctx->snd_seq = ctx->initial_sequence_num + 1;
-
-    printf("sending data\n");
     stcp_network_send(sd, &hdr, sizeof(STCPHeader), NULL);
-    printf("data succsessfully sent\n");
+    ctx->connection_state = SYN_RECEIVED;
+    printf("server finished handshake\n");
   }
 
   /* XXX: you should send a SYN packet here if is_active, or wait for one
