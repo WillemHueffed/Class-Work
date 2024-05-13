@@ -62,57 +62,39 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   STCPHeader hdr;
   memset(&hdr, 0, sizeof(STCPHeader));
   if (is_active) {
-    // Send SYN
-    // Is this the bug?
-    // If I run it without the htons it crashes, if I run it with it the client
-    // just hangs there
-    // hdr.th_flags = TH_SYN;
-    // hdr.th_flags = htons();
-    // hdr.th_off = 5;
-    // hdr.th_win = WINDOW_SIZE;
-    // hdr.th_seq = ctx->initial_sequence_num;
-    // ctx->snd_seq = ctx->initial_sequence_num + 1;
-
-    if (stcp_network_send(sd, &hdr, sizeof(STCPHeader), NULL) == -1) {
-      perror("send broke");
-      exit(1);
-    }
-    printf("sent syn\n");
+    // send SYN
+    hdr.th_flags |= TH_ACK;
+    hdr.th_off = 5;
+    hdr.th_win = htons(WINDOW_SIZE);
+    hdr.th_seq = htonl(ctx->initial_sequence_num);
+    ctx->snd_seq = ctx->initial_sequence_num + 1;
+    stcp_network_send(sd, &hdr, sizeof(STCPHeader), NULL);
 
     // receive SYNACK
     memset(&hdr, 0, sizeof(STCPHeader));
     printf("at recv\n");
     stcp_network_recv(sd, &hdr, sizeof(STCPHeader));
     printf("past recv\n");
-    // int ack = hdr.th_seq;
-    //  jassert(ctx->snd_seq == ntohl(hdr.th_ack));
-    //  assert(ntohl(hdr.th_flags) & (TH_SYN | TH_ACK));
-    // printf("received synack\n");
 
-    // send ACK
-    memset(&hdr, 0, sizeof(STCPHeader));
-    printf("sending ack\n");
-    hdr.th_flags |= TH_ACK;
-    hdr.th_off = 5;
-    hdr.th_seq = ctx->snd_seq++;
-    hdr.th_win = WINDOW_SIZE;
-
-  } else {
+  } else if (!is_active) {
     // receive SYN
-    stcp_network_recv(sd, (void *)&hdr, sizeof(STCPHeader));
-    // hdr.th_flags = ntohs(hdr.th_flags);
-    // int ack = ntohl(hdr.th_seq) + 1;
+    printf("receiving data\n");
+    stcp_network_recv(sd, &hdr, sizeof(STCPHeader));
+    printf("data succsessfully received\n");
+    int ack_num = ntohl(hdr.th_seq) + 1;
 
-    // send SYNACK
-    // memset(&hdr, 0, sizeof(STCPHeader));
     memset(&hdr, 0, sizeof(STCPHeader));
-    // hdr.th_flags = TH_ACK;
-    // hdr.th_off = 5;
-    // hdr.th_win = WINDOW_SIZE;
-    // hdr.th_seq = ctx->initial_sequence_num;
-    // hdr2.th_ack = htonl(ack);
-    // ctx->snd_seq = ctx->initial_sequence_num + 1;
+
+    hdr.th_flags |= TH_SYN | TH_ACK;
+    hdr.th_off = 5;
+    hdr.th_win = htons(WINDOW_SIZE);
+    hdr.th_seq = htonl(ctx->initial_sequence_num);
+    hdr.th_ack = htonl(ack_num);
+    ctx->snd_seq = ctx->initial_sequence_num + 1;
+
+    printf("sending data\n");
     stcp_network_send(sd, &hdr, sizeof(STCPHeader), NULL);
+    printf("data succsessfully sent\n");
   }
 
   /* XXX: you should send a SYN packet here if is_active, or wait for one
