@@ -20,7 +20,16 @@
 #include <string.h>
 #include <time.h>
 
-enum { CSTATE_ESTABLISHED }; /* you should have more states */
+enum {
+  CSTATE_ESTABLISHED,
+  FIN_WAIT_1,
+  FIT_WAIT_2,
+  CLOSING,
+  CLOSE_WAIT,
+  LAST_ACK
+}; /* you should have more states */
+
+int active = 0;
 
 #define WINDOW_SIZE 3072
 
@@ -34,12 +43,13 @@ typedef struct {
   char snd_wndw[WINDOW_SIZE];
   int snd_ptr_f;
   int snd_ptr_b;
-  uint snd_seq;
 
   char rcv_wndw[WINDOW_SIZE];
   int rcv_ptr_f;
   int rcv_ptr_b;
-  uint rcv_seq;
+
+  uint seq_num;
+  uint ack_num;
 
   /* any other connection-wide global variables go here */
 } context_t;
@@ -52,11 +62,9 @@ static void control_loop(mysocket_t sd, context_t *ctx);
  * return until the connection is closed.
  */
 void transport_init(mysocket_t sd, bool_t is_active) {
+  active = is_active; // used to introduce noise into rng process
   context_t *ctx;
 
-  printf("Testing | active: %d\n", is_active);
-  fflush(stdout);
-  fflush(stderr);
   ctx = (context_t *)calloc(1, sizeof(context_t));
   assert(ctx);
 
@@ -70,7 +78,8 @@ void transport_init(mysocket_t sd, bool_t is_active) {
     hdr->th_off = 5;
     hdr->th_win = htons(WINDOW_SIZE);
     hdr->th_seq = htonl(ctx->initial_sequence_num);
-    ctx->snd_seq = ctx->initial_sequence_num + 1;
+    ctx->seq_num = ctx->initial_sequence_num + 20;
+    printf("syn sn: %d and ack: %d\n", ntohl(hdr->th_seq), ntohl(hdr->th_ack));
     if (stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL) == -1) {
       printf("error\n");
       return;
@@ -78,37 +87,65 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
     // receive SYNACK
     memset(hdr, 0, sizeof(STCPHeader));
-    printf("at recv\n");
     if (stcp_network_recv(sd, hdr, sizeof(STCPHeader)) != 20) {
       printf("error recv\n");
     }
-    printf("past recv\n");
-    
-    printf("rcvd synack\n");
+    assert(ntohl(hdr->th_ack) == ctx->seq_num);
+    ctx->ack_num = ntohl(hdr->th_seq) + 20; // rcv_seq is our ack num
+    printf("received synack: sn: %d, ack: %d\n", ntohl(hdr->th_seq),
+           ntohl(hdr->th_ack));
 
+    // send ACK
+    memset(hdr, 0, sizeof(STCPHeader));
+    hdr->th_flags |= TH_ACK;
+    hdr->th_off = 5;
+    hdr->th_seq = htonl(ctx->seq_num);
+    hdr->th_ack = htonl(ctx->ack_num);
+    ctx->seq_num += 20;
+    printf("sending ack sn: %d and ack: %d\n", ntohl(hdr->th_seq),
+           ntohl(hdr->th_ack));
+    if (stcp_network_send(sd, hdr, sizeof(STCPHeader)) == -1) {
+      printf("err snd\n");
+      return;
+    }
+    printf("client side handshake finsished, current sn: %d, ack: %d\n",
+           ctx->seq_num, ctx->ack_num);
   } else {
     // receive SYN
-    printf("receiving data\n");
     if (stcp_network_recv(sd, hdr, sizeof(STCPHeader)) == -1) {
       printf("error recv\n");
       return;
     }
-    printf("data succsessfully received\n");
-    int ack_num = ntohl(hdr->th_seq) + 1;
+    printf("receiving syn: sn: %d, ack: %d\n", ntohl(hdr->th_seq),
+           ntohl(hdr->th_ack));
+    ctx->ack_num = ntohl(hdr->th_seq) + 20;
+    assert((hdr->th_flags & TH_SYN));
 
+    // send SYN-ACK
+    ctx->seq_num = ctx->initial_sequence_num;
     memset(hdr, 0, sizeof(STCPHeader));
-
     hdr->th_flags |= TH_SYN | TH_ACK;
     hdr->th_off = 5;
     hdr->th_win = htons(WINDOW_SIZE);
-    hdr->th_seq = htonl(ctx->initial_sequence_num);
-    hdr->th_ack = htonl(ack_num);
-    ctx->snd_seq = ctx->initial_sequence_num + 1;
-
-    printf("sending data\n");
+    hdr->th_seq = htonl(ctx->seq_num);
+    hdr->th_ack = htonl(ctx->ack_num);
+    ctx->seq_num += 20;
+    printf("sending synack with sn: %d and ack: %d\n", ntohl(hdr->th_seq),
+           ntohl(hdr->th_ack));
     stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
-    //assert(0);
-    printf("data succsessfully sent\n");
+
+    // receive ACK
+    memset(hdr, 0, sizeof(STCPHeader));
+    stcp_network_recv(sd, hdr, sizeof(STCPHeader));
+    printf("receiving ack: sn: %d, ack: %d\n", ntohl(hdr->th_seq),
+           ntohl(hdr->th_ack));
+    printf("th_seq: %d | ack: %d\n", ntohl(hdr->th_seq), ctx->ack_num);
+    assert(ntohl(hdr->th_seq) == ctx->ack_num);
+    assert(ntohl(hdr->th_ack) == ctx->seq_num);
+    assert(hdr->th_flags & TH_ACK);
+    ctx->ack_num = ntohl(hdr->th_seq) + 20;
+    printf("server side handshake finsished, current sn: %d, ack: %d\n",
+           ctx->seq_num, ctx->ack_num);
   }
 
   /* XXX: you should send a SYN packet here if is_active, or wait for one
@@ -136,7 +173,13 @@ static void generate_initial_seq_num(context_t *ctx) {
   ctx->initial_sequence_num = 1;
 #else
   /* you have to fill this up */
-  srand(time(NULL));
+  // The ISN was ending up the same if I wasn't differentiating by active and
+  // passive -> not sure why if the srand(time) has a granularity of seconds.
+  if (active) {
+    srand(time(NULL) / 2);
+  } else {
+    srand(time(NULL) / 5);
+  }
   ctx->initial_sequence_num = rand() % 256;
 #endif
 }
