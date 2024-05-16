@@ -21,6 +21,7 @@
 #include <time.h>
 
 enum {
+  HANDSHAKING,
   CSTATE_ESTABLISHED,
   FIN_WAIT_1,
   FIT_WAIT_2,
@@ -32,7 +33,6 @@ enum {
 int active = 0;
 
 #define WINDOW_SIZE 3072
-#define PAYLOAD_SIZE 536
 
 typedef struct {
   char wndw[WINDOW_SIZE];
@@ -48,15 +48,15 @@ typedef struct {
   int connection_state; /* state of the connection (established, etc.) */
   tcp_seq initial_sequence_num;
 
-  cbuff buff;
-
-  int rcvr_wndw;
+  cbuff snd_buff;
+  cbuff rcv_buff;
 
   uint seq_num;
   uint ack_num;
+  uint rcvr_wndw;
 
-  char tmp_buf[PAYLOAD_SIZE];
-
+  // Store here to make memory managment easier
+  char tmp_buf[STCP_MSS];
   STCPHeader *hdr;
 
   /* any other connection-wide global variables go here */
@@ -77,9 +77,12 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   context_t *ctx;
   ctx = (context_t *)calloc(1, sizeof(context_t));
   assert(ctx);
-  ctx->buff.ptr_f = -1;
-  ctx->buff.ptr_b = -1;
-  ctx->buff.free_bytes = WINDOW_SIZE;
+  ctx->snd_buff.ptr_f = -1;
+  ctx->snd_buff.ptr_b = -1;
+  ctx->snd_buff.free_bytes = WINDOW_SIZE;
+  ctx->rcv_buff.ptr_f = -1;
+  ctx->rcv_buff.ptr_b = -1;
+  ctx->rcv_buff.free_bytes = WINDOW_SIZE;
 
   generate_initial_seq_num(ctx);
 
@@ -168,13 +171,6 @@ void transport_init(mysocket_t sd, bool_t is_active) {
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
   }
 
-  /* XXX: you should send a SYN packet here if is_active, or wait for one
-   * to arrive if !is_active.  after the handshake completes, unblock the
-   * application with stcp_unblock_application(sd).  you may also use
-   * this to communicate an error condition back to the application, e.g.
-   * if connection fails; to do so, just set errno appropriately (e.g. to
-   * ECONNREFUSED, etc.) before calling the function.
-   */
   ctx->connection_state = CSTATE_ESTABLISHED;
   stcp_unblock_application(sd);
 
@@ -192,7 +188,6 @@ static void generate_initial_seq_num(context_t *ctx) {
   /* please don't change this! */
   ctx->initial_sequence_num = 1;
 #else
-  /* you have to fill this up */
   // The ISN was ending up the same if I wasn't differentiating by active and
   // passive -> not sure why if the srand(time) has a granularity of seconds.
   if (active) {
@@ -227,7 +222,7 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
 
         printf("reading data from app\n");
-        printf("free buff size: %d\n", ctx->buff.free_bytes);
+        printf("free buff size: %d\n", ctx->snd_buff.free_bytes);
         printf("rcvr_wndw size: %d\n", ctx->rcvr_wndw);
         // account for header w/ -20
         int rcv_len =
@@ -238,7 +233,7 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         // TODO: Add checks to ensure flow control
         memset(ctx->hdr, 0, sizeof(STCPHeader));
         STCPHeader *hdr = ctx->hdr;
-        hdr->th_win = htons(ctx->buff.free_bytes);
+        hdr->th_win = htons(ctx->snd_buff.free_bytes);
         hdr->th_seq = htonl(ctx->seq_num);
         hdr->th_ack = htonl(ctx->ack_num);
         hdr->th_off = 5;
@@ -251,21 +246,52 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
     if (event & NETWORK_DATA) {
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
         printf("reading data from network\n");
-        printf("free buff size: %d\n", ctx->buff.free_bytes);
+        printf("free buff size: %d\n", ctx->snd_buff.free_bytes);
         printf("rcvr_wndw size: %d\n", ctx->rcvr_wndw);
-        memset(ctx->tmp_buf, 0, PAYLOAD_SIZE);
-        int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, PAYLOAD_SIZE);
+
+        memset(ctx->tmp_buf, 0, STCP_MSS);
+        int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, STCP_MSS);
         printf("passed rcv\n");
         assert(rcv_len >= 20);
+
         STCPHeader *hdr = ctx->hdr;
         memset(hdr, 0, sizeof(STCPHeader));
+        // copy header over
         memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
         printf("seq num: %d | ack_num: %d\n", ntohl(hdr->th_seq), ctx->ack_num);
         assert(ntohl(hdr->th_seq) == ctx->ack_num);
         assert(ntohl(hdr->th_ack) == ctx->seq_num);
         ctx->ack_num = ntohl(hdr->th_seq) + rcv_len;
         printf("received data: %s\n", ctx->tmp_buf + 20);
-        memset(ctx->tmp_buf, 0, PAYLOAD_SIZE);
+
+        // If FIN flag is set
+        if (hdr->th_flags & TH_FIN) {
+          ctx->connection_state = CLOSE_WAIT;
+          // ACK the FIN;
+          memset(hdr, 0, sizeof(STCPHeader));
+        }
+
+        memset(ctx->tmp_buf, 0, STCP_MSS);
+      }
+    }
+    if (event & APP_CLOSE_REQUESTED) {
+      printf("app close requested\n");
+
+      if (ctx->connection_state == CSTATE_ESTABLISHED) {
+        STCPHeader *hdr = ctx->hdr;
+        memset(hdr, 0, sizeof(STCPHeader));
+        hdr->th_win = htons(ctx->snd_buff.free_bytes);
+        hdr->th_seq = htonl(ctx->seq_num);
+        hdr->th_ack = htonl(ctx->ack_num);
+        hdr->th_off = 5;
+        hdr->th_flags |= TH_FIN;
+        ctx->seq_num += 20;
+        stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
+        printf("sent FIN\n");
+        ctx->connection_state = FIN_WAIT_1;
+      } else {
+        printf("attempting to close from a non-established connection");
+        assert(0);
       }
     }
   }
@@ -331,8 +357,8 @@ char _deq_from_cbuff(cbuff *buff) {
     exit(1);
   }
   char val = cbuff[*front];
-  cbuff[*front] = 'b'; // considering using '\0' but don't want that mess stuff
-                       // up if I need to print the buffer
+  cbuff[*front] = 'b'; // considering using '\0' but don't want that mess
+                       // stuff up if I need to print the buffer
   if (*front == *rear) {
     *front = -1;
     *rear = -1;
