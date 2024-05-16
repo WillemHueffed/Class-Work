@@ -66,7 +66,7 @@ typedef struct {
   uint rcvr_wndw;
 
   // Store here to make memory managment easier
-  char tmp_buf[STCP_MSS];
+  char tmp_buf[WINDOW_SIZE];
   STCPHeader *hdr;
 
   /* any other connection-wide global variables go here */
@@ -274,7 +274,9 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       assert(ntohl(hdr->th_ack) == ctx->seq_num);
       ctx->ack_num = ntohl(hdr->th_seq) + rcv_len;
       printf("received data: %s\n", ctx->tmp_buf + 20);
-      memset(ctx->tmp_buf, 0, STCP_MSS);
+      stcp_app_send(sd, ctx->tmp_buf + 20, rcv_len - 20);
+      printf("pushed data up to app layer\n%s\n", ctx->tmp_buf + 20);
+      memset(ctx->tmp_buf, 0, WINDOW_SIZE);
 
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
         // If FIN flag is set
