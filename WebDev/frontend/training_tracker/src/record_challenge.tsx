@@ -1,84 +1,91 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+
 interface Segment {
   id: number;
   name: string;
+  time?: number;
+}
+
+interface Challenge {
+  challengeName: string;
+  segments: Segment[];
 }
 
 const Record_Challenge: React.FC = () => {
-  const [challengeName, setChallengeName] = useState('');
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const [nextSegmentId, setNextSegmentId] = useState(1);
+  const location = useLocation();
+  const challengeData = location.state as { challenge: Challenge } | null;
 
-  const handleChallengeNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setChallengeName(e.target.value);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [time, setTime] = useState(0);
+  const [segmentTimes, setSegmentTimes] = useState<Segment[]>(challengeData?.challenge.segments || []);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isRunning && !isPaused) {
+      timerRef.current = window.setInterval(() => {
+        setTime(prevTime => prevTime + 1);
+      }, 1000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isRunning, isPaused]);
+
+  const handleStart = () => {
+    setIsRunning(true);
   };
 
-  const handleSegmentNameChange = (id: number, newName: string) => {
-    setSegments(prevSegments =>
-      prevSegments.map(segment =>
-        segment.id === id ? { ...segment, name: newName } : segment
-      )
-    );
-  };
-
-  const addSegment = () => {
-    setSegments([...segments, { id: nextSegmentId, name: 'New Segment' }]);
-    setNextSegmentId(nextSegmentId + 1);
-  };
-
-  const removeSegment = (id: number) => {
-    setSegments(prevSegments => prevSegments.filter(segment => segment.id !== id));
-  };
-
-  const saveChallenge = () => {
-    if (challengeName.trim() && segments.length > 0) {
-      const newChallenge = { challengeName, segments };
-      const savedChallenges = JSON.parse(localStorage.getItem('challenges') || '[]');
-      savedChallenges.push(newChallenge);
-      localStorage.setItem('challenges', JSON.stringify(savedChallenges));
-      
-      console.log('Challenge saved:', newChallenge);
-      // Reset the form or navigate to another page
-      setChallengeName('');
-      setSegments([]);
-    } else {
-      alert('Please enter a challenge name and at least one segment.');
+  const handleNextSegment = () => {
+    const nextSegmentIndex = segmentTimes.findIndex(segment => segment.time === undefined);
+    if (nextSegmentIndex !== -1) {
+      const newSegmentTimes = [...segmentTimes];
+      newSegmentTimes[nextSegmentIndex].time = time;
+      setSegmentTimes(newSegmentTimes);
     }
   };
 
-  const cancel = () => {
-    // Reset the form or navigate to another page
-    setChallengeName('');
-    setSegments([]);
+  const handleEnd = () => {
+    setIsRunning(false);
+  };
+
+  const handlePauseResume = () => {
+    setIsPaused(prevIsPaused => !prevIsPaused);
   };
 
   return (
     <div>
-      <h1>Create a New Challenge</h1>
-
-      <label>
-        Challenge Name:
-        <input type="text" value={challengeName} onChange={handleChallengeNameChange} />
-      </label>
-
-      <h2>Segments</h2>
-      {segments.map(segment => (
-        <div key={segment.id}>
-          <input
-            type="text"
-            value={segment.name}
-            onChange={e => handleSegmentNameChange(segment.id, e.target.value)}
-          />
-          <button onClick={() => removeSegment(segment.id)}>Remove</button>
-        </div>
-      ))}
-
-      <button onClick={addSegment}>Add Segment</button>
-      <br />
-      <button onClick={cancel}>Cancel</button>
-      <button onClick={saveChallenge}>Save Challenge</button>
+      <h1>{challengeData?.challenge.challengeName}</h1>
+      <div>
+        <h2>Overall Timer: {time}s</h2>
+      </div>
+      <ul>
+        {segmentTimes.map((segment, index) => (
+          <li key={segment.id}>
+            {segment.name}: {segment.time !== undefined ? `${segment.time}s` : 'Not completed'}
+          </li>
+        ))}
+      </ul>
+      {!isRunning && <button onClick={handleStart}>Start</button>}
+      {isRunning && !isPaused && (
+        <>
+          <button onClick={handleNextSegment}>Next Segment</button>
+          <button onClick={handleEnd}>End</button>
+          <button onClick={handlePauseResume}>Pause</button>
+        </>
+      )}
+      {isRunning && isPaused && (
+        <button onClick={handlePauseResume}>Resume</button>
+      )}
     </div>
   );
 };
 
-export default Record_Challenge 
+export default Record_Challenge;
