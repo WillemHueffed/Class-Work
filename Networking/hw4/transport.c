@@ -224,7 +224,7 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         hdr->th_seq = htonl(ctx->seq_num);
         hdr->th_ack = htonl(ctx->ack_num);
         hdr->th_off = 5;
-        ctx->seq_num += 20 + rcv_len;
+        ctx->seq_num += rcv_len;
         assert((sizeof(STCPHeader) + rcv_len) <= ctx->rcvr_wndw);
         stcp_network_send(sd, hdr, sizeof(STCPHeader), ctx->tmp_buf, rcv_len,
                           NULL);
