@@ -163,7 +163,7 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   control_loop(sd, ctx);
 
   /* do any cleanup here */
-  free(ctx);
+  // free(ctx);
 }
 
 /* generate random initial sequence number for an STCP connection */
@@ -453,13 +453,14 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
   hdr->th_seq = htonl(ctx->seq_num);
   hdr->th_ack = htonl(ctx->ack_num);
   hdr->th_win = htons(WINDOW_SIZE);
+  // TODO: we maybe shouldn't be incrementing by +1 for a sequence number
   if ((flags & TH_SYN) || (flags & TH_ACK) || (flags & (TH_SYN | TH_ACK)) ||
       (flags & (TH_FIN)) || (flags & (TH_FIN | TH_ACK))) {
     ctx->seq_num += 1;
   } else {
     ctx->seq_num += buff_len;
   }
-  if (snd_buff && (buff_len < STCP_MSS)) {
+  if (snd_buff && (buff_len <= STCP_MSS)) {
     if (stcp_network_send(ctx->sd, hdr, sizeof(STCPHeader), snd_buff, buff_len,
                           NULL) == -1) {
       printf("err snd\n");
