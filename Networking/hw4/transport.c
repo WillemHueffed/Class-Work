@@ -20,6 +20,8 @@
 #include <string.h>
 #include <time.h>
 
+#define DEBUG 1
+
 enum {
   HANDSHAKING,
   CSTATE_ESTABLISHED,
@@ -113,27 +115,33 @@ void transport_init(mysocket_t sd, bool_t is_active) {
     // receive SYNACK
     memset(hdr, 0, sizeof(STCPHeader));
     if (stcp_network_recv(sd, hdr, sizeof(STCPHeader)) != 20) {
-      printf("error recv\n");
+      perror("error recv\n");
     }
     assert(ntohl(hdr->th_ack) == ctx->seq_num);
     ctx->ack_num = ntohl(hdr->th_seq) + 1; // rcv_seq is our ack num
+#if DEBUG
     printf("received synack: sn: %d, ack: %d\n", ntohl(hdr->th_seq),
            ntohl(hdr->th_ack));
+#endif
     ctx->rcvr_wndw = ntohs(hdr->th_win);
 
     // send ACK
     my_send(ctx, TH_ACK, NULL, 0);
+#if DEBUG
     printf("client side handshake finsished, current sn: %d, ack: %d, rcvr "
            "window: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
+#endif
   } else {
     // receive SYN
     if (stcp_network_recv(sd, hdr, sizeof(STCPHeader)) == -1) {
-      printf("error recv\n");
+      perror("error recv\n");
       return;
     }
+#if DEBUG
     printf("receiving syn: sn: %d, ack: %d\n", ntohl(hdr->th_seq),
            ntohl(hdr->th_ack));
+#endif
     ctx->ack_num = ntohl(hdr->th_seq) + 1;
     ctx->rcvr_wndw = ntohs(hdr->th_win);
     assert((hdr->th_flags & TH_SYN));
@@ -144,17 +152,21 @@ void transport_init(mysocket_t sd, bool_t is_active) {
     // receive ACK
     memset(hdr, 0, sizeof(STCPHeader));
     stcp_network_recv(sd, hdr, sizeof(STCPHeader));
+#if DEBUG
     printf("receiving ack: sn: %d, ack: %d\n", ntohl(hdr->th_seq),
            ntohl(hdr->th_ack));
+#endif
     // printf("th_seq: %d | ack: %d\n", ntohl(hdr->th_seq), ctx->ack_num);
     assert(ntohl(hdr->th_seq) == ctx->ack_num);
     assert(ntohl(hdr->th_ack) == ctx->seq_num);
     assert(hdr->th_flags & TH_ACK);
     ctx->ack_num = ntohl(hdr->th_seq) + 1;
     ctx->rcvr_wndw = ntohs(hdr->th_win);
+#if DEBUG
     printf("server side handshake finsished, current sn: %d, ack: %d, rcvr win "
            "size: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
+#endif
   }
 
   ctx->connection_state = CSTATE_ESTABLISHED;
@@ -162,10 +174,8 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
   control_loop(sd, ctx);
   assert(ctx);
-  printf("exiting init loop - ctx has been asserted to be !NULL\n");
   return;
 
-  printf("freeing ctx\n");
   /* do any cleanup here */
   free(ctx);
 }
@@ -202,8 +212,10 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
 
   while (!ctx->done) {
     unsigned int event;
+#if DEBUG
     printf("\ncurrent connection state is %s\n",
            e_names[ctx->connection_state]);
+#endif
 
     /* see stcp_api.h or stcp_api.c for details of this function */
     /* XXX: you will need to change some of these arguments! */
@@ -213,13 +225,16 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
     if (event & APP_DATA) {
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
 
+#if DEBUG
         printf("reading data from app\n");
         printf("free buff size: %d\n", ctx->snd_buff.free_bytes);
         printf("rcvr_wndw size: %d\n", ctx->rcvr_wndw);
-        // account for header w/ -20
+#endif
         int rcv_len = stcp_app_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
+#if DEBUG
         printf("recieved %d bytes from app layer\n", rcv_len);
         printf("buffer is: %s", ctx->tmp_buf);
+#endif
 
         // TODO: Add checks to ensure flow control
         memset(ctx->hdr, 0, sizeof(STCPHeader));
@@ -232,32 +247,37 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         assert((sizeof(STCPHeader) + rcv_len) <= ctx->rcvr_wndw);
         stcp_network_send(sd, hdr, sizeof(STCPHeader), ctx->tmp_buf, rcv_len,
                           NULL);
+#if DEBUG
         printf("sucsessfully pushed data to network\n");
+#endif
       }
     }
     if (event & NETWORK_DATA) {
       assert(ctx->hdr);
+#if DEBUG
       printf("reading data from network\n");
       printf("sn is: %d, ack is: %d\n", ctx->seq_num, ctx->ack_num);
       printf("free buff size: %d\n", ctx->snd_buff.free_bytes);
       printf("rcvr_wndw size: %d\n", ctx->rcvr_wndw);
+#endif
 
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
-      // printf("passed rcv\n");
       assert(rcv_len >= 20);
 
       STCPHeader *hdr = ctx->hdr;
       memset(hdr, 0, sizeof(STCPHeader));
-      // copy header over
       memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
+#if DEBUG
       printf("(validate sn is expected) seq num: %d | ack_num: %d\n",
              ntohl(hdr->th_seq), ctx->ack_num);
+#endif
       assert(ctx->hdr);
       assert(ntohl(hdr->th_seq) == ctx->ack_num);
+#if DEBUG
       printf("current ack: %d, sn: %d\n", ntohl(hdr->th_ack), ctx->seq_num);
+#endif
       assert(ntohl(hdr->th_ack) == ctx->seq_num);
-      int from = ctx->ack_num;
       if (rcv_len > 20) {
         // This is a normal packet so just add the total length - the size of
         // the header
@@ -269,12 +289,17 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         // error
         assert(0);
       }
+#if DEBUG
+      int from = ctx->ack_num;
       printf("updating ack num to: %d from %d\n", ctx->ack_num, from);
       printf("received data: %s\n", ctx->tmp_buf + sizeof(STCPHeader));
+#endif
       stcp_app_send(sd, ctx->tmp_buf + sizeof(STCPHeader),
                     rcv_len - sizeof(STCPHeader));
+#if DEBUG
       printf("pushed data up to app layer\n%s\n",
              ctx->tmp_buf + sizeof(STCPHeader));
+#endif
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       assert(ctx->hdr);
 
@@ -285,7 +310,9 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           ctx->connection_state = CLOSE_WAIT;
           // ACK the FIN;
           my_send(ctx, TH_ACK, NULL, 0);
+#if DEBUG
           printf("sent ACK in response to FIN\n");
+#endif
           stcp_fin_received(sd);
           assert(ctx->hdr);
         }
@@ -300,16 +327,22 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         else if (hdr->th_flags & TH_FIN) {
           ctx->connection_state = CLOSING;
           my_send(ctx, TH_ACK, NULL, 0);
+#if DEBUG
           printf(
               "In state FIN_WAIT_1 -> CLOSING: sent ACK in response to FIN \n");
+#endif
           stcp_fin_received(sd);
           assert(ctx->hdr);
         }
       } else if (ctx->connection_state == FIN_WAIT_2) {
+#if DEBUG
         printf("in FIN_WAIT_2 branch\n");
+#endif
         if (hdr->th_flags & TH_FIN) {
           my_send(ctx, TH_ACK, NULL, 0);
+#if DEBUG
           printf("In state FIN_WAIT_2: sent ACK in response to FIN \n");
+#endif
           ctx->connection_state = CLOSED;
           ctx->done = TRUE;
           assert(ctx->hdr);
@@ -320,13 +353,11 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         assert(0);
       } else if (ctx->connection_state == LAST_ACK) {
         if (hdr->th_flags & TH_ACK) {
+#if DEBUG
           printf("Received ACK, socket should be closed...\n");
-          // ctx->connection_state = CLOSED;
+#endif
+          ctx->connection_state = CLOSED;
           ctx->done = TRUE;
-          //  this doesn't belogn here but doing it to test why the socket is
-          //  causing the ctx assertion to fail
-          // stcp_fin_received(sd);
-          // assert(ctx->hdr);
         }
       } else if (ctx->connection_state == CLOSING) {
         if (hdr->th_flags & TH_ACK) {
@@ -339,7 +370,9 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       }
     }
     if (event & APP_CLOSE_REQUESTED) {
+#if DEBUG
       printf("app close requested\n");
+#endif
       if ((ctx->connection_state == CSTATE_ESTABLISHED) ||
           ctx->connection_state == CLOSE_WAIT) {
         // Send FIN
@@ -350,12 +383,16 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
                                     ? FIN_WAIT_1
                                     : LAST_ACK;
       } else {
+#if DEBUG
         printf("attempting to close from a non-established connection");
+#endif
         assert(0);
       }
     }
   }
+#if DEBUG
   printf("exiting crtl loop\n");
+#endif
   assert(ctx);
 }
 
@@ -468,7 +505,9 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
       return;
     }
   } else {
+#if DEBUG
     printf("got to trying to send the syn\n");
+#endif
     if (stcp_network_send(ctx->sd, hdr, sizeof(STCPHeader), NULL) == -1) {
       printf("err snd\n");
       return;
