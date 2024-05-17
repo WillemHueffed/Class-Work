@@ -270,9 +270,11 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         assert(0);
       }
       printf("updating ack num to: %d from %d\n", ctx->ack_num, from);
-      printf("received data: %s\n", ctx->tmp_buf + 20);
-      stcp_app_send(sd, ctx->tmp_buf + 20, rcv_len - 20);
-      printf("pushed data up to app layer\n%s\n", ctx->tmp_buf + 20);
+      printf("received data: %s\n", ctx->tmp_buf + sizeof(STCPHeader));
+      stcp_app_send(sd, ctx->tmp_buf + sizeof(STCPHeader),
+                    rcv_len - sizeof(STCPHeader));
+      printf("pushed data up to app layer\n%s\n",
+             ctx->tmp_buf + sizeof(STCPHeader));
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       assert(ctx->hdr);
 
@@ -297,9 +299,9 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         // simul close
         else if (hdr->th_flags & TH_FIN) {
           ctx->connection_state = CLOSING;
-          // TODO: Impleement closing state
           my_send(ctx, TH_ACK, NULL, 0);
-          printf("In state FIN_WAIT_1: sent ACK in response to FIN \n");
+          printf(
+              "In state FIN_WAIT_1 -> CLOSING: sent ACK in response to FIN \n");
           stcp_fin_received(sd);
           assert(ctx->hdr);
         }
@@ -325,6 +327,14 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           //  causing the ctx assertion to fail
           // stcp_fin_received(sd);
           // assert(ctx->hdr);
+        }
+      } else if (ctx->connection_state == CLOSING) {
+        if (hdr->th_flags & TH_ACK) {
+          ctx->done = TRUE;
+        } else {
+          perror("undefined state transition, state closing recieved input "
+                 "other than an ACK");
+          assert(0);
         }
       }
     }
