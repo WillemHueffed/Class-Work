@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
 static void do_connection(mysocket_t sd) {
   // next line used to test teardown
   myclose(sd);
+  exit(0);
 
   char line[256];
   int rc;

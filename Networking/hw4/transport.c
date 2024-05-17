@@ -161,9 +161,13 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   stcp_unblock_application(sd);
 
   control_loop(sd, ctx);
+  assert(ctx);
+  printf("exiting init loop - ctx has been asserted to be !NULL\n");
+  return;
 
+  printf("freeing ctx\n");
   /* do any cleanup here */
-  // free(ctx);
+  free(ctx);
 }
 
 /* generate random initial sequence number for an STCP connection */
@@ -293,6 +297,7 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         // simul close
         else if (hdr->th_flags & TH_FIN) {
           ctx->connection_state = CLOSING;
+          // TODO: Impleement closing state
           my_send(ctx, TH_ACK, NULL, 0);
           printf("In state FIN_WAIT_1: sent ACK in response to FIN \n");
           stcp_fin_received(sd);
@@ -314,12 +319,12 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       } else if (ctx->connection_state == LAST_ACK) {
         if (hdr->th_flags & TH_ACK) {
           printf("Received ACK, socket should be closed...\n");
-          ctx->connection_state = CLOSED;
+          // ctx->connection_state = CLOSED;
           ctx->done = TRUE;
-          // this doesn't belogn here but doing it to test why the socket is
-          // causing the ctx assertion to fail
-          stcp_fin_received(sd);
-          assert(ctx->hdr);
+          //  this doesn't belogn here but doing it to test why the socket is
+          //  causing the ctx assertion to fail
+          // stcp_fin_received(sd);
+          // assert(ctx->hdr);
         }
       }
     }
@@ -334,28 +339,14 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         ctx->connection_state = (ctx->connection_state == CSTATE_ESTABLISHED)
                                     ? FIN_WAIT_1
                                     : LAST_ACK;
-        /*
-        STCPHeader *hdr = ctx->hdr;
-        memset(hdr, 0, sizeof(STCPHeader));
-        hdr->th_win = htons(ctx->snd_buff.free_bytes);
-        hdr->th_seq = htonl(ctx->seq_num);
-        hdr->th_ack = htonl(ctx->ack_num);
-        hdr->th_off = 5;
-        hdr->th_flags |= TH_FIN;
-        ctx->seq_num += 1;
-        assert(sizeof(STCPHeader) <= ctx->rcvr_wndw);
-        stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
-        printf("sent FIN\n");
-        ctx->connection_state = (ctx->connection_state == CSTATE_ESTABLISHED)
-                                    ? FIN_WAIT_1
-                                    : LAST_ACK;
-                                    */
       } else {
         printf("attempting to close from a non-established connection");
         assert(0);
       }
     }
   }
+  printf("exiting crtl loop\n");
+  assert(ctx);
 }
 
 /**********************************************************************/
