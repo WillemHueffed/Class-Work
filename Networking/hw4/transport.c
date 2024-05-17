@@ -108,18 +108,6 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
   if (is_active) {
     // send SYN
-    /*
-    hdr->th_flags |= TH_SYN;
-    hdr->th_off = 5;
-    hdr->th_win = htons(WINDOW_SIZE);
-    hdr->th_seq = htonl(ctx->initial_sequence_num);
-    ctx->seq_num = ctx->initial_sequence_num + 1;
-    printf("syn sn: %d and ack: %d\n", ntohl(hdr->th_seq), ntohl(hdr->th_ack));
-    if (stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL) == -1) {
-      printf("error\n");
-      return;
-    }
-    */
     my_send(ctx, TH_SYN, NULL, 0);
 
     // receive SYNACK
@@ -135,21 +123,6 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
     // send ACK
     my_send(ctx, TH_ACK, NULL, 0);
-    /*
-    memset(hdr, 0, sizeof(STCPHeader));
-    hdr->th_flags |= TH_ACK;
-    hdr->th_off = 5;
-    hdr->th_seq = htonl(ctx->seq_num);
-    hdr->th_ack = htonl(ctx->ack_num);
-    hdr->th_win = htons(WINDOW_SIZE);
-    ctx->seq_num += 1;
-    printf("sending ack sn: %d and ack: %d\n", ntohl(hdr->th_seq),
-           ntohl(hdr->th_ack));
-    if (stcp_network_send(sd, hdr, sizeof(STCPHeader)) == -1) {
-      printf("err snd\n");
-      return;
-    }
-    */
     printf("client side handshake finsished, current sn: %d, ack: %d, rcvr "
            "window: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
@@ -167,20 +140,6 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
     // send SYN-ACK
     my_send(ctx, (TH_SYN | TH_ACK), NULL, 0);
-
-    /*
-    ctx->seq_num = ctx->initial_sequence_num;
-    memset(hdr, 0, sizeof(STCPHeader));
-    hdr->th_flags |= TH_SYN | TH_ACK;
-    hdr->th_off = 5;
-    hdr->th_win = htons(WINDOW_SIZE);
-    hdr->th_seq = htonl(ctx->seq_num);
-    hdr->th_ack = htonl(ctx->ack_num);
-    ctx->seq_num += 1;
-    printf("sending synack with sn: %d and ack: %d\n", ntohl(hdr->th_seq),
-           ntohl(hdr->th_ack));
-    stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
-    */
 
     // receive ACK
     memset(hdr, 0, sizeof(STCPHeader));
@@ -273,27 +232,45 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       }
     }
     if (event & NETWORK_DATA) {
+      assert(ctx->hdr);
       printf("reading data from network\n");
+      printf("sn is: %d, ack is: %d\n", ctx->seq_num, ctx->ack_num);
       printf("free buff size: %d\n", ctx->snd_buff.free_bytes);
       printf("rcvr_wndw size: %d\n", ctx->rcvr_wndw);
 
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
-      printf("passed rcv\n");
+      // printf("passed rcv\n");
       assert(rcv_len >= 20);
 
       STCPHeader *hdr = ctx->hdr;
       memset(hdr, 0, sizeof(STCPHeader));
       // copy header over
       memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
-      printf("seq num: %d | ack_num: %d\n", ntohl(hdr->th_seq), ctx->ack_num);
+      printf("(validate sn is expected) seq num: %d | ack_num: %d\n",
+             ntohl(hdr->th_seq), ctx->ack_num);
+      assert(ctx->hdr);
       assert(ntohl(hdr->th_seq) == ctx->ack_num);
+      printf("current ack: %d, sn: %d\n", ntohl(hdr->th_ack), ctx->seq_num);
       assert(ntohl(hdr->th_ack) == ctx->seq_num);
-      ctx->ack_num = ntohl(hdr->th_seq) + rcv_len;
+      int from = ctx->ack_num;
+      if (rcv_len > 20) {
+        // This is a normal packet so just add the total length - the size of
+        // the header
+        ctx->ack_num = ntohl(hdr->th_seq) + rcv_len - sizeof(STCPHeader);
+      } else if (rcv_len == 20) {
+        // Then is a synchronization packet so sn/ack num just goes up by 1
+        ctx->ack_num++;
+      } else {
+        // error
+        assert(0);
+      }
+      printf("updating ack num to: %d from %d\n", ctx->ack_num, from);
       printf("received data: %s\n", ctx->tmp_buf + 20);
       stcp_app_send(sd, ctx->tmp_buf + 20, rcv_len - 20);
       printf("pushed data up to app layer\n%s\n", ctx->tmp_buf + 20);
-      memset(ctx->tmp_buf, 0, WINDOW_SIZE);
+      memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
+      assert(ctx->hdr);
 
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
         // If FIN flag is set
@@ -302,65 +279,33 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           ctx->connection_state = CLOSE_WAIT;
           // ACK the FIN;
           my_send(ctx, TH_ACK, NULL, 0);
-          /*
-          memset(hdr, 0, sizeof(STCPHeader));
-          hdr->th_flags |= TH_ACK;
-          hdr->th_win = htons(ctx->snd_buff.free_bytes);
-          hdr->th_seq = htonl(ctx->seq_num);
-          hdr->th_ack = htonl(ctx->ack_num);
-          hdr->th_off = 5;
-          hdr->th_flags |= TH_ACK;
-          ctx->seq_num += 1;
-          assert(sizeof(STCPHeader) <= ctx->rcvr_wndw);
-          stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
-          */
           printf("sent ACK in response to FIN\n");
           stcp_fin_received(sd);
+          assert(ctx->hdr);
         }
       } else if (ctx->connection_state == FIN_WAIT_1) {
         // goto FIN wait 2
         if (hdr->th_flags & TH_ACK) {
           ctx->connection_state = FIN_WAIT_2;
           stcp_fin_received(sd);
+          assert(ctx->hdr);
         }
         // simul close
         else if (hdr->th_flags & TH_FIN) {
           ctx->connection_state = CLOSING;
           my_send(ctx, TH_ACK, NULL, 0);
-          /*
-          memset(hdr, 0, sizeof(STCPHeader));
-          hdr->th_flags |= TH_ACK;
-          hdr->th_win = htons(ctx->snd_buff.free_bytes);
-          hdr->th_seq = htonl(ctx->seq_num);
-          hdr->th_ack = htonl(ctx->ack_num);
-          hdr->th_off = 5;
-          hdr->th_flags |= TH_ACK;
-          ctx->seq_num += 1;
-          assert(sizeof(STCPHeader) <= ctx->rcvr_wndw);
-          stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
-          */
           printf("In state FIN_WAIT_1: sent ACK in response to FIN \n");
           stcp_fin_received(sd);
+          assert(ctx->hdr);
         }
       } else if (ctx->connection_state == FIN_WAIT_2) {
         printf("in FIN_WAIT_2 branch\n");
         if (hdr->th_flags & TH_FIN) {
-          /*
-          memset(hdr, 0, sizeof(STCPHeader));
-          hdr->th_flags |= TH_ACK;
-          hdr->th_win = htons(ctx->snd_buff.free_bytes);
-          hdr->th_seq = htonl(ctx->seq_num);
-          hdr->th_ack = htonl(ctx->ack_num);
-          hdr->th_off = 5;
-          hdr->th_flags |= TH_ACK;
-          ctx->seq_num += 1;
-          assert(sizeof(STCPHeader) <= ctx->rcvr_wndw);
-          stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
-          */
           my_send(ctx, TH_ACK, NULL, 0);
           printf("In state FIN_WAIT_2: sent ACK in response to FIN \n");
           ctx->connection_state = CLOSED;
           ctx->done = TRUE;
+          assert(ctx->hdr);
         }
       } else if (ctx->connection_state == CLOSE_WAIT) {
         // TODO: return an error, this 1/2 of the conn should be closed
@@ -371,6 +316,10 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           printf("Received ACK, socket should be closed...\n");
           ctx->connection_state = CLOSED;
           ctx->done = TRUE;
+          // this doesn't belogn here but doing it to test why the socket is
+          // causing the ctx assertion to fail
+          stcp_fin_received(sd);
+          assert(ctx->hdr);
         }
       }
     }
@@ -379,7 +328,12 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       if ((ctx->connection_state == CSTATE_ESTABLISHED) ||
           ctx->connection_state == CLOSE_WAIT) {
         // Send FIN
+        assert(ctx);
+        assert(ctx->hdr);
         my_send(ctx, TH_FIN, NULL, 0);
+        ctx->connection_state = (ctx->connection_state == CSTATE_ESTABLISHED)
+                                    ? FIN_WAIT_1
+                                    : LAST_ACK;
         /*
         STCPHeader *hdr = ctx->hdr;
         memset(hdr, 0, sizeof(STCPHeader));
@@ -388,14 +342,14 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         hdr->th_ack = htonl(ctx->ack_num);
         hdr->th_off = 5;
         hdr->th_flags |= TH_FIN;
-        ctx->seq_num += 20;
+        ctx->seq_num += 1;
         assert(sizeof(STCPHeader) <= ctx->rcvr_wndw);
         stcp_network_send(sd, hdr, sizeof(STCPHeader), NULL);
         printf("sent FIN\n");
         ctx->connection_state = (ctx->connection_state == CSTATE_ESTABLISHED)
                                     ? FIN_WAIT_1
                                     : LAST_ACK;
-        */
+                                    */
       } else {
         printf("attempting to close from a non-established connection");
         assert(0);
@@ -492,6 +446,7 @@ int push_n_to_cbuff(char *src, int len, cbuff *cbuff) {
 
 void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
   STCPHeader *hdr = ctx->hdr;
+  assert(ctx->hdr);
   memset(hdr, 0, sizeof(STCPHeader));
   hdr->th_flags |= flags;
   hdr->th_off = 5;
@@ -517,4 +472,5 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
       return;
     }
   }
+  assert(ctx->hdr);
 }
