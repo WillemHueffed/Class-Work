@@ -68,7 +68,7 @@ typedef struct {
   STCPHeader *hdr;
 
   // helper buffer for "simulating" our circular buffers
-  char app_buf[WINDOW_SIZE];
+  char win_buf[WINDOW_SIZE];
 
   /* any other connection-wide global variables go here */
   mysocket_t sd;
@@ -221,12 +221,37 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
     if (event & APP_DATA) {
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
 
-        int rcv_len = stcp_app_recv(sd, ctx->tmp_buf, STCP_MSS);
-        printf("before network send - sn: %d | ack: %d\n", ctx->seq_num,
-               ctx->ack_num);
-        my_send(ctx, 0, ctx->tmp_buf, rcv_len);
-        printf("after network send - sn: %d | ack: %d\n\n", ctx->seq_num,
-               ctx->ack_num);
+        int rcv_len = stcp_app_recv(sd, ctx->win_buf, ctx->rcvr_wndw);
+        for (int i = 0; rcv_len; rcv_len--, i++) {
+          push_to_cbuff(ctx->win_buf[i], &ctx->snd_buff);
+        }
+        printf("the snd buff has %d bytes free\n", ctx->snd_buff.free_bytes);
+        while (ctx->snd_buff.free_bytes != WINDOW_SIZE) {
+          int b_in_send_buff = WINDOW_SIZE - ctx->snd_buff.free_bytes;
+          if (b_in_send_buff > STCP_MSS) {
+            // send full packet
+            // printf("before network send - sn: %d | ack: %d\n", ctx->seq_num,
+            //        ctx->ack_num);
+            memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
+            for (int i = 0; i < STCP_MSS; i++) {
+              ctx->tmp_buf[i] = deq_from_cbuff(&ctx->snd_buff);
+            }
+            my_send(ctx, 0, ctx->tmp_buf, STCP_MSS);
+            memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
+            // printf("after network send - sn: %d | ack: %d\n\n", ctx->seq_num,
+            //        ctx->ack_num);
+          } else {
+            memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
+            for (int i = 0; i < b_in_send_buff; i++) {
+              ctx->tmp_buf[i] = deq_from_cbuff(&ctx->snd_buff);
+            }
+            my_send(ctx, 0, ctx->tmp_buf, b_in_send_buff);
+            memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
+            // send small packet
+          }
+          printf("sending packet\n");
+        }
+        printf("\n");
       }
     }
     if (event & NETWORK_DATA) {
@@ -325,11 +350,11 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       // printf("\ncbuff is currently: %s\n", ctx->rcv_buff.wndw);
       int i = 0;
       for (; ctx->rcv_buff.free_bytes != WINDOW_SIZE; i++) {
-        ctx->app_buf[i] = deq_from_cbuff(&ctx->rcv_buff);
+        ctx->win_buf[i] = deq_from_cbuff(&ctx->rcv_buff);
       }
       // printf("free bytes: %d\n", ctx->rcv_buff.free_bytes);
-      stcp_app_send(sd, ctx->app_buf, i);
-      memset(ctx->app_buf, 0, sizeof(ctx->app_buf));
+      stcp_app_send(sd, ctx->win_buf, i);
+      memset(ctx->win_buf, 0, sizeof(ctx->win_buf));
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
     }
     if (event & APP_CLOSE_REQUESTED) {
