@@ -245,6 +245,11 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
 
         int rcv_len = stcp_app_recv(sd, ctx->win_buf, ctx->rcvr_wndw);
+        if (rcv_len < 1) {
+          printf("app recv err\n");
+          errno = EIO;
+          exit(1);
+        }
         for (int i = 0; rcv_len; rcv_len--, i++) {
           push_to_cbuff(ctx->win_buf[i], &ctx->snd_buff);
         }
