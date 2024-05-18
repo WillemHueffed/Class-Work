@@ -1,6 +1,6 @@
 ================================================
  README file for Project 3 - Simple TCP
-           Name(s): Willem Hueffed & Read Bevins
+           Name(s): Willem Hueffed & Reed Bevins
 ================================================
 
 DESCRIBE YOUR CODE AND DESIGN DECISIONS HERE
@@ -36,3 +36,6 @@ we use it to just directly compare "flags == TH_ACK" -> works for our purposes. 
 - stcp_app_send -> The comments in the api.c and api.h file don't make clear what this does when it fails. Its also returns void so we can't check that...
 - stcp_app_recv -> If this returns < 1 we set errno and exit(1). Again documentation doesn't make clear how it fails. Assuming it fails by returning 0
 
+# Work Breakdown
+- Willem: Handshaking, seq and ack nums, circ buffs, state machine
+- Reed: Connection teardown, designed the data strucutres, debugging, refined state machine transitions
