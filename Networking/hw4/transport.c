@@ -77,6 +77,7 @@ void _push_to_cbuff(char val, cbuff *buff);
 char _deq_from_cbuff(cbuff *buff);
 int push_n_to_cbuff(char *src, int len, cbuff *cbuff);
 void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len);
+void my_inc_ack(context_t *ctx, uint8_t flags, int byte_len);
 
 /* initialise the transport layer, and start the main loop, handling
  * any data from the peer or the application.  this function should not
@@ -112,18 +113,23 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   if (is_active) {
     // send SYN
     my_send(ctx, TH_SYN, NULL, 0);
+    printf("sending syn, current sn: %d, ack: %d\n", ctx->seq_num,
+           ctx->ack_num);
 
     // receive SYNACK
     memset(hdr, 0, sizeof(STCPHeader));
-    if (stcp_network_recv(sd, hdr, sizeof(STCPHeader)) != 20) {
-      perror("error recv\n");
-    }
+    uint8_t rcv_len = stcp_network_recv(sd, hdr, sizeof(STCPHeader));
     assert(ntohl(hdr->th_ack) == ctx->seq_num);
-    ctx->ack_num = ntohl(hdr->th_seq) + 1; // rcv_seq is our ack num
+    ctx->ack_num = ntohl(hdr->th_seq); // This gets inc in my_inc_ack just have
+                                       // to initialize it here
+    my_inc_ack(ctx, hdr->th_flags, rcv_len);
+    printf("recieved synack, updatd sn: %d, ack %d\n", ctx->seq_num,
+           ctx->ack_num);
     ctx->rcvr_wndw = ntohs(hdr->th_win);
 
     // send ACK
     my_send(ctx, TH_ACK, NULL, 0);
+    printf("sending ACK, updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
 #if DEBUG || DEBUG2
     printf("client side handshake finsished, current sn: %d, ack: %d, rcvr "
            "window: %d\n",
@@ -131,25 +137,29 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 #endif
   } else {
     // receive SYN
-    if (stcp_network_recv(sd, hdr, sizeof(STCPHeader)) == -1) {
-      perror("error recv\n");
-      return;
-    }
-    ctx->ack_num = ntohl(hdr->th_seq) + 1;
-    ctx->rcvr_wndw = ntohs(hdr->th_win);
+    uint8_t rcv_len = stcp_network_recv(sd, hdr, sizeof(STCPHeader));
     assert((hdr->th_flags & TH_SYN));
+    ctx->rcvr_wndw = ntohs(hdr->th_win);
+    ctx->ack_num = ntohl(hdr->th_seq); // This gets inc in my_inc_ack just have
+                                       // to initialize it here
+    my_inc_ack(ctx, hdr->th_flags, rcv_len);
+    printf("recieved SYN updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
 
     // send SYN-ACK
     my_send(ctx, (TH_SYN | TH_ACK), NULL, 0);
+    printf("sending synack, updatd sn: %d, ack %d\n", ctx->seq_num,
+           ctx->ack_num);
 
     // receive ACK
     memset(hdr, 0, sizeof(STCPHeader));
     stcp_network_recv(sd, hdr, sizeof(STCPHeader));
+    printf("sn: %d, ack: %d\n", ntohl(hdr->th_seq), ctx->ack_num);
     assert(ntohl(hdr->th_seq) == ctx->ack_num);
     assert(ntohl(hdr->th_ack) == ctx->seq_num);
     assert(hdr->th_flags & TH_ACK);
-    ctx->ack_num = ntohl(hdr->th_seq) + 1;
+    my_inc_ack(ctx, hdr->th_flags, rcv_len);
     ctx->rcvr_wndw = ntohs(hdr->th_win);
+    printf("sending ack, updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
 #if DEBUG || DEBUG2
     printf("server side handshake finsished, current sn: %d, ack: %d, rcvr win "
            "size: %d\n",
@@ -398,12 +408,17 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
   hdr->th_ack = htonl(ctx->ack_num);
   hdr->th_win = htons(WINDOW_SIZE);
   // TODO: we maybe shouldn't be incrementing by +1 for a sequence number
-  if ((flags & TH_SYN) || (flags & TH_ACK) || (flags & (TH_SYN | TH_ACK)) ||
-      (flags & (TH_FIN)) || (flags & (TH_FIN | TH_ACK))) {
+  if (flags == TH_ACK) {
+    printf("sending ack\n");
+  } else if ((flags & TH_SYN) || (flags & TH_ACK) ||
+             (flags & (TH_SYN | TH_ACK)) || (flags & (TH_FIN)) ||
+             (flags & (TH_FIN | TH_ACK))) {
     ctx->seq_num += 1;
   } else {
+    printf("sending data packet\n");
     ctx->seq_num += buff_len;
   }
+
   if (snd_buff && (buff_len <= STCP_MSS)) {
     assert(buff_len <= ctx->rcvr_wndw);
     if (stcp_network_send(ctx->sd, hdr, sizeof(STCPHeader), snd_buff, buff_len,
@@ -419,4 +434,18 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
     }
   }
   assert(ctx->hdr);
+}
+
+void my_inc_ack(context_t *ctx, uint8_t flags, int byte_len) {
+  if (flags == TH_ACK) { // doing (flags & TH_ACK) catches SYN-ACK pkts too...
+                         // this doesnt...
+    printf("this is an ack pkt, not incing syn\n");
+  } else if (flags) { // this should be more specific...
+    printf("conn start/teardown pkt detected -> sn++\n");
+    ctx->ack_num++;
+  } else {
+    uint offset = byte_len - sizeof(STCPHeader);
+    printf("increasing sn by %d\n", offset);
+    ctx->ack_num += offset;
+  }
 }
