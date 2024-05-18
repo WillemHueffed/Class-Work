@@ -31,16 +31,11 @@ enum {
   CLOSE_WAIT,
   LAST_ACK,
   CLOSED,
-}; /* you should have more states */
+};
 
-const char *e_names[] = {"HANDSHAKING",
-                         "CSTATE_ESTABLISHED",
-                         "FIN_WAIT_1",
-                         "FIN_WAIT_2",
-                         "CLOSING",
-                         "CLOSE_WAIT",
-                         "LAST_ACK",
-                         "CLOSED"}; /* you should have more states */
+const char *e_names[] = {
+    "HANDSHAKING", "CSTATE_ESTABLISHED", "FIN_WAIT_1", "FIN_WAIT_2",
+    "CLOSING",     "CLOSE_WAIT",         "LAST_ACK",   "CLOSED"};
 
 int active = 0;
 
@@ -68,7 +63,7 @@ typedef struct {
   uint rcvr_wndw;
 
   // Store here to make memory managment easier
-  char tmp_buf[STCP_MSS + sizeof(STCPHeader)];
+  char tmp_buf[STCP_MSS + 20];
   STCPHeader *hdr;
 
   /* any other connection-wide global variables go here */
@@ -87,6 +82,10 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len);
  * return until the connection is closed.
  */
 void transport_init(mysocket_t sd, bool_t is_active) {
+#if DEBUG
+  printf("size of stcp header is %d\n", (int)sizeof(STCPHeader));
+#endif
+
   active = is_active; // used to introduce noise into rng process
   context_t *ctx;
 
@@ -230,23 +229,13 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         printf("free buff size: %d\n", ctx->snd_buff.free_bytes);
         printf("rcvr_wndw size: %d\n", ctx->rcvr_wndw);
 #endif
-        int rcv_len = stcp_app_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
+        int rcv_len = stcp_app_recv(sd, ctx->tmp_buf, STCP_MSS);
 #if DEBUG
         printf("recieved %d bytes from app layer\n", rcv_len);
+        assert(rcv_len <= 536);
         printf("buffer is: %s", ctx->tmp_buf);
 #endif
-
-        // TODO: Add checks to ensure flow control
-        memset(ctx->hdr, 0, sizeof(STCPHeader));
-        STCPHeader *hdr = ctx->hdr;
-        hdr->th_win = htons(ctx->snd_buff.free_bytes);
-        hdr->th_seq = htonl(ctx->seq_num);
-        hdr->th_ack = htonl(ctx->ack_num);
-        hdr->th_off = 5;
-        ctx->seq_num += rcv_len;
-        assert((sizeof(STCPHeader) + rcv_len) <= ctx->rcvr_wndw);
-        stcp_network_send(sd, hdr, sizeof(STCPHeader), ctx->tmp_buf, rcv_len,
-                          NULL);
+        my_send(ctx, 0, ctx->tmp_buf, rcv_len);
 #if DEBUG
         printf("sucsessfully pushed data to network\n");
 #endif
@@ -263,6 +252,10 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
 
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
+#if DEBUG
+      printf("received %d bytes\n", rcv_len);
+#endif
+      assert(rcv_len <= ctx->rcv_buff.free_bytes);
       assert(rcv_len >= 20);
 
       STCPHeader *hdr = ctx->hdr;
@@ -499,6 +492,7 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
     ctx->seq_num += buff_len;
   }
   if (snd_buff && (buff_len <= STCP_MSS)) {
+    assert(buff_len <= ctx->rcvr_wndw);
     if (stcp_network_send(ctx->sd, hdr, sizeof(STCPHeader), snd_buff, buff_len,
                           NULL) == -1) {
       printf("err snd\n");
@@ -508,6 +502,7 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
 #if DEBUG
     printf("got to trying to send the syn\n");
 #endif
+    assert(buff_len <= ctx->rcvr_wndw);
     if (stcp_network_send(ctx->sd, hdr, sizeof(STCPHeader), NULL) == -1) {
       printf("err snd\n");
       return;
