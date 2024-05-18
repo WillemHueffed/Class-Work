@@ -73,9 +73,8 @@ typedef struct {
 
 static void generate_initial_seq_num(context_t *ctx);
 static void control_loop(mysocket_t sd, context_t *ctx);
-void _push_to_cbuff(char val, cbuff *buff);
-char _deq_from_cbuff(cbuff *buff);
-int push_n_to_cbuff(char *src, int len, cbuff *cbuff);
+void push_to_cbuff(char val, cbuff *buff);
+char deq_from_cbuff(cbuff *buff);
 void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len);
 void my_inc_ack(context_t *ctx, uint8_t flags, int byte_len);
 
@@ -129,8 +128,8 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
     // send ACK
     my_send(ctx, TH_ACK, NULL, 0);
-    printf("sending ACK, updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
 #if DEBUG || DEBUG2
+    printf("sending ACK, updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
     printf("client side handshake finsished, current sn: %d, ack: %d, rcvr "
            "window: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
@@ -247,7 +246,10 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       printf("updated ack_num to: %d\n", ctx->ack_num);
       printf("recieved ack %d | my sn is: %d\n", ntohl(hdr->th_ack),
              ctx->seq_num);
-      // assert(ntohl(hdr->th_ack) == ctx->seq_num);
+      // This assert will fail, server sends 2 packets gets ack for packet 1
+      // while server side sn is updated to packet 2 assert(ntohl(hdr->th_ack)
+      // == ctx->seq_num); We don't have to implement retransmit but I think
+      // assert(ntohl(hdr->th_ack) <= ctx->seq_num) is more appropriate?
       stcp_app_send(sd, ctx->tmp_buf + sizeof(STCPHeader),
                     rcv_len - sizeof(STCPHeader));
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
@@ -360,7 +362,7 @@ int get_cbuff_free_len(int start, int end, int size) {
   return remaining;
 }
 
-void _push_to_cbuff(char val, cbuff *buff) {
+void push_to_cbuff(char val, cbuff *buff) {
   int *front = &(buff->ptr_f);
   int *rear = &(buff->ptr_b);
   char *cbuff = &(buff->wndw[0]);
@@ -378,7 +380,7 @@ void _push_to_cbuff(char val, cbuff *buff) {
   buff->free_bytes--;
 }
 
-char _deq_from_cbuff(cbuff *buff) {
+char deq_from_cbuff(cbuff *buff) {
   int *front = &(buff->ptr_f);
   int *rear = &(buff->ptr_b);
   char *cbuff = &(buff->wndw[0]);
@@ -399,18 +401,6 @@ char _deq_from_cbuff(cbuff *buff) {
   }
   buff->free_bytes++;
   return val;
-}
-
-int push_n_to_cbuff(char *src, int len, cbuff *cbuff) {
-  if (cbuff->free_bytes < len) {
-    perror("attempted to write too many bytes to buffer");
-    return (1);
-  }
-  for (int i = 0; len > 0; i++) {
-    _push_to_cbuff(src[i++], cbuff);
-  }
-  // silence compiler
-  return 1;
 }
 
 void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
