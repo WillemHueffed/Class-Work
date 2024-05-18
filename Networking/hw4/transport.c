@@ -34,11 +34,10 @@ enum {
   CLOSED,
 };
 
+// Used to print name of enum state
 const char *e_names[] = {
     "HANDSHAKING", "CSTATE_ESTABLISHED", "FIN_WAIT_1", "FIN_WAIT_2",
     "CLOSING",     "CLOSE_WAIT",         "LAST_ACK",   "CLOSED"};
-
-int active = 0;
 
 #define WINDOW_SIZE 3072
 
@@ -70,7 +69,7 @@ typedef struct {
   // helper buffer for "simulating" our circular buffers
   char win_buf[WINDOW_SIZE];
 
-  /* any other connection-wide global variables go here */
+  int is_active;
   mysocket_t sd;
 } context_t;
 
@@ -90,7 +89,6 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   printf("size of stcp header is %d\n", (int)sizeof(STCPHeader));
 #endif
 
-  active = is_active; // used to introduce noise into rng process
   context_t *ctx;
 
   // Initialise context
@@ -103,36 +101,48 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   ctx->rcv_buff.ptr_b = -1;
   ctx->rcv_buff.free_bytes = WINDOW_SIZE;
   ctx->sd = sd;
+  ctx->is_active = is_active; // used to introduce noise into rng process
   // store header in ctx to make memory managment easier
   ctx->hdr = (STCPHeader *)calloc(1, sizeof(STCPHeader));
   STCPHeader *hdr = ctx->hdr; // alias header
   memset(hdr, 0, sizeof(STCPHeader));
 
   generate_initial_seq_num(ctx);
+#if DEBUG
   printf("initial_sequence_num is %d\n", ctx->initial_sequence_num);
+#endif
   ctx->seq_num = ctx->initial_sequence_num;
 
   if (is_active) {
     // send SYN
     my_send(ctx, TH_SYN, NULL, 0);
+#if DEBUG
     printf("sending syn, current sn: %d, ack: %d\n", ctx->seq_num,
            ctx->ack_num);
+#endif
 
     // receive SYNACK
     memset(hdr, 0, sizeof(STCPHeader));
     uint8_t rcv_len = stcp_network_recv(sd, hdr, sizeof(STCPHeader));
+    if (rcv_len < 20) {
+      errno = EIO; // Not really sure what the appropriate errno value should be
+                   // - this seems generally appropriate
+      exit(1);
+    }
+    if (rcv_len < 20) {
+      errno = EIO; // Not really sure what the appropriate errno value should be
+                   // - this seems generally appropriate
+      exit(1);
+    }
     assert(ntohl(hdr->th_ack) == ctx->seq_num);
     ctx->ack_num = ntohl(hdr->th_seq); // This gets inc in my_inc_ack just have
                                        // to initialize it here
     my_inc_ack(ctx, hdr->th_flags, rcv_len);
-    printf("recieved synack, updatd sn: %d, ack %d\n", ctx->seq_num,
-           ctx->ack_num);
     ctx->rcvr_wndw = ntohs(hdr->th_win);
 
     // send ACK
     my_send(ctx, TH_ACK, NULL, 0);
-#if DEBUG || DEBUG2
-    printf("sending ACK, updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
+#if DEBUG
     printf("client side handshake finsished, current sn: %d, ack: %d, rcvr "
            "window: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
@@ -140,29 +150,39 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   } else {
     // receive SYN
     uint8_t rcv_len = stcp_network_recv(sd, hdr, sizeof(STCPHeader));
+    if (rcv_len < 20) {
+      errno = EIO; // Not really sure what the appropriate errno value should be
+                   // - this seems generally appropriate
+      exit(1);
+    }
+    if (rcv_len < 20) {
+      errno = EIO; // Not really sure what the appropriate errno value should be
+                   // - this seems generally appropriate
+      exit(1);
+    }
     assert((hdr->th_flags & TH_SYN));
     ctx->rcvr_wndw = ntohs(hdr->th_win);
     ctx->ack_num = ntohl(hdr->th_seq); // This gets inc in my_inc_ack just have
                                        // to initialize it here
     my_inc_ack(ctx, hdr->th_flags, rcv_len);
-    printf("recieved SYN updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
 
     // send SYN-ACK
     my_send(ctx, (TH_SYN | TH_ACK), NULL, 0);
-    printf("sending synack, updatd sn: %d, ack %d\n", ctx->seq_num,
-           ctx->ack_num);
 
     // receive ACK
     memset(hdr, 0, sizeof(STCPHeader));
     stcp_network_recv(sd, hdr, sizeof(STCPHeader));
-    printf("sn: %d, ack: %d\n", ntohl(hdr->th_seq), ctx->ack_num);
+    if (rcv_len < 20) {
+      errno = EIO; // Not really sure what the appropriate errno value should be
+                   // - this seems generally appropriate
+      exit(1);
+    }
     assert(ntohl(hdr->th_seq) == ctx->ack_num);
     assert(ntohl(hdr->th_ack) == ctx->seq_num);
     assert(hdr->th_flags & TH_ACK);
     my_inc_ack(ctx, hdr->th_flags, rcv_len);
     ctx->rcvr_wndw = ntohs(hdr->th_win);
-    printf("sending ack, updatd sn: %d, ack %d\n", ctx->seq_num, ctx->ack_num);
-#if DEBUG || DEBUG2
+#if DEBUG
     printf("server side handshake finsished, current sn: %d, ack: %d, rcvr win "
            "size: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
@@ -177,6 +197,7 @@ void transport_init(mysocket_t sd, bool_t is_active) {
   return;
 
   /* do any cleanup here */
+  free(ctx->hdr);
   free(ctx);
 }
 
@@ -190,7 +211,7 @@ static void generate_initial_seq_num(context_t *ctx) {
 #else
   // The ISN was ending up the same if I wasn't differentiating by active and
   // passive -> not sure why if the srand(time) has a granularity of seconds.
-  if (active) {
+  if (ctx->is_active) {
     srand(time(NULL) / 2);
   } else {
     srand(time(NULL) / 5);
@@ -206,6 +227,9 @@ static void generate_initial_seq_num(context_t *ctx) {
  *   - the socket to be closed (via myclose())
  *   - a timeout
  */
+// ^^^ document says underlying connection is reliable so we don't have to
+// implement timeout functionality... inconsistent, frustrating, and confusing
+
 static void control_loop(mysocket_t sd, context_t *ctx) {
   assert(ctx);
   assert(!ctx->done);
@@ -213,8 +237,7 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
   while (!ctx->done) {
     unsigned int event;
 
-    /* see stcp_api.h or stcp_api.c for details of this function */
-    /* XXX: you will need to change some of these arguments! */
+    // Any event doesn't contain timeout mask
     event = stcp_wait_for_event(sd, ANY_EVENT, NULL);
 
     /* check whether it was the network, app, or a close request */
@@ -225,49 +248,55 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
         for (int i = 0; rcv_len; rcv_len--, i++) {
           push_to_cbuff(ctx->win_buf[i], &ctx->snd_buff);
         }
+#if DEBUG
         printf("the snd buff has %d bytes free\n", ctx->snd_buff.free_bytes);
+#endif
         while (ctx->snd_buff.free_bytes != WINDOW_SIZE) {
           int b_in_send_buff = WINDOW_SIZE - ctx->snd_buff.free_bytes;
           if (b_in_send_buff > STCP_MSS) {
             // send full packet
-            // printf("before network send - sn: %d | ack: %d\n", ctx->seq_num,
-            //        ctx->ack_num);
             memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
             for (int i = 0; i < STCP_MSS; i++) {
               ctx->tmp_buf[i] = deq_from_cbuff(&ctx->snd_buff);
             }
             my_send(ctx, 0, ctx->tmp_buf, STCP_MSS);
             memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
-            // printf("after network send - sn: %d | ack: %d\n\n", ctx->seq_num,
-            //        ctx->ack_num);
           } else {
+            // send small packet
             memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
             for (int i = 0; i < b_in_send_buff; i++) {
               ctx->tmp_buf[i] = deq_from_cbuff(&ctx->snd_buff);
             }
             my_send(ctx, 0, ctx->tmp_buf, b_in_send_buff);
             memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
-            // send small packet
           }
-          printf("sending packet\n");
         }
-        printf("\n");
       }
     }
     if (event & NETWORK_DATA) {
+#if DEBUG
       printf("start network recv - sn: %d | ack: %d\n", ctx->seq_num,
              ctx->ack_num);
+#endif
       assert(ctx->hdr);
 
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
+      if (rcv_len < 20) {
+        errno =
+            EIO; // Not really sure what the appropriate errno value should be
+                 // - this seems generally appropriate
+        exit(1);
+      }
       assert(rcv_len <= ctx->rcv_buff.free_bytes);
       assert(rcv_len >= 20);
 
       STCPHeader *hdr = ctx->hdr;
       memset(hdr, 0, sizeof(STCPHeader));
       memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
+#if DEBUG
       printf("advertized window size is: %d\n", ntohs(hdr->th_win));
+#endif
       assert(ctx->hdr);
       // th_win could technically be zero if buffer is full -> unlikely ->
       // sanity check to ensure I'm writing the field
@@ -275,9 +304,11 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       ctx->rcvr_wndw = ntohs(hdr->th_win);
       // assert(ntohl(hdr->th_seq) == ctx->ack_num);
       my_inc_ack(ctx, hdr->th_flags, rcv_len);
+#if DEBUG
       printf("updated ack_num to: %d\n", ctx->ack_num);
       printf("recieved ack %d | my sn is: %d\n", ntohl(hdr->th_ack),
              ctx->seq_num);
+#endif
 
       // Push data into cbuff
       assert(rcv_len - sizeof(STCPHeader) <= ctx->rcv_buff.free_bytes);
@@ -302,7 +333,9 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           assert(ctx->hdr);
         }
         if (!(hdr->th_flags == TH_ACK)) {
+#if DEBUG
           printf("sending ack with ack_num: %d\n", ctx->ack_num);
+#endif
           my_send(ctx, TH_ACK, NULL, 0);
         }
       } else if (ctx->connection_state == FIN_WAIT_1) {
@@ -463,13 +496,17 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
   hdr->th_win = htons(ctx->rcv_buff.free_bytes);
   // TODO: we maybe shouldn't be incrementing by +1 for a sequence number
   if (flags == TH_ACK) {
+#if DEBUG
     printf("sending ack\n");
+#endif
   } else if ((flags & TH_SYN) || (flags & TH_ACK) ||
              (flags & (TH_SYN | TH_ACK)) || (flags & (TH_FIN)) ||
              (flags & (TH_FIN | TH_ACK))) {
     ctx->seq_num += 1;
   } else {
+#if DEBUG
     printf("sending data packet of len %d\n", buff_len);
+#endif
     ctx->seq_num += buff_len;
   }
 
@@ -493,13 +530,19 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
 void my_inc_ack(context_t *ctx, uint8_t flags, int byte_len) {
   if (flags == TH_ACK) { // doing (flags & TH_ACK) catches SYN-ACK pkts too...
                          // this doesnt...
+#if DEBUG
     printf("this is an ack pkt, not incing syn\n");
+#endif
   } else if (flags) { // this should be more specific...
+#if DEBUG
     printf("conn start/teardown pkt detected -> sn++\n");
+#endif
     ctx->ack_num++;
   } else {
     uint offset = byte_len - sizeof(STCPHeader);
+#if DEBUG
     printf("increasing sn by %d\n", offset);
+#endif
     ctx->ack_num += offset;
   }
 }
