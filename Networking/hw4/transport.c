@@ -20,7 +20,8 @@
 #include <string.h>
 #include <time.h>
 
-#define DEBUG 1
+#define DEBUG 0
+#define DEBUG2 2
 
 enum {
   HANDSHAKING,
@@ -126,7 +127,7 @@ void transport_init(mysocket_t sd, bool_t is_active) {
 
     // send ACK
     my_send(ctx, TH_ACK, NULL, 0);
-#if DEBUG
+#if DEBUG || DEBUG2
     printf("client side handshake finsished, current sn: %d, ack: %d, rcvr "
            "window: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
@@ -161,7 +162,7 @@ void transport_init(mysocket_t sd, bool_t is_active) {
     assert(hdr->th_flags & TH_ACK);
     ctx->ack_num = ntohl(hdr->th_seq) + 1;
     ctx->rcvr_wndw = ntohs(hdr->th_win);
-#if DEBUG
+#if DEBUG || DEBUG2
     printf("server side handshake finsished, current sn: %d, ack: %d, rcvr win "
            "size: %d\n",
            ctx->seq_num, ctx->ack_num, ctx->rcvr_wndw);
@@ -252,21 +253,20 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
 
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
       int rcv_len = stcp_network_recv(sd, ctx->tmp_buf, sizeof(ctx->tmp_buf));
-#if DEBUG
-      printf("received %d bytes\n", rcv_len);
-#endif
       assert(rcv_len <= ctx->rcv_buff.free_bytes);
       assert(rcv_len >= 20);
 
       STCPHeader *hdr = ctx->hdr;
       memset(hdr, 0, sizeof(STCPHeader));
       memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
-#if DEBUG
-      printf("(validate sn is expected) seq num: %d | ack_num: %d\n",
-             ntohl(hdr->th_seq), ctx->ack_num);
+#if DEBUG || DEBUG2
+      printf("received sn: %d from sender expected %d\n", ntohl(hdr->th_seq),
+             ctx->ack_num);
 #endif
       assert(ctx->hdr);
-      assert(ntohl(hdr->th_seq) == ctx->ack_num);
+      // assert(ntohl(hdr->th_seq) == ctx->ack_num);
+      ctx->ack_num += rcv_len - sizeof(STCPHeader);
+      printf("updated ack_num to: %d\n", ctx->ack_num);
 #if DEBUG
       printf("current ack: %d, sn: %d\n", ntohl(hdr->th_ack), ctx->seq_num);
 #endif
@@ -274,7 +274,6 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       if (rcv_len > 20) {
         // This is a normal packet so just add the total length - the size of
         // the header
-        ctx->ack_num = ntohl(hdr->th_seq) + rcv_len - sizeof(STCPHeader);
       } else if (rcv_len == 20) {
         // Then is a synchronization packet so sn/ack num just goes up by 1
         ctx->ack_num++;
@@ -476,6 +475,7 @@ int push_n_to_cbuff(char *src, int len, cbuff *cbuff) {
 }
 
 void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
+  printf("current sn: %d\n", ctx->seq_num);
   STCPHeader *hdr = ctx->hdr;
   assert(ctx->hdr);
   memset(hdr, 0, sizeof(STCPHeader));
@@ -508,5 +508,6 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
       return;
     }
   }
+  printf("updated seq_num to %d\n", ctx->seq_num);
   assert(ctx->hdr);
 }
