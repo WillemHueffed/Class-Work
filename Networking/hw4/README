@@ -1,6 +1,38 @@
 ================================================
  README file for Project 3 - Simple TCP
-           Name(s): 
+           Name(s): Willem Hueffed & Read Bevins
 ================================================
 
 DESCRIBE YOUR CODE AND DESIGN DECISIONS HERE
+
+# Into
+All modifcations in transport.c
+We defined all our data strucutres in the context_t struct so as to keep our function interfaces simple.
+  - This has the added advantage of easier memory management -> safer
+
+# Buffers
+We use two "toy" circular buffers, these buffers have been implemented as FIFO queues where you push and dequeue one byte at a time.
+This was motivated by trying avoid coping data over from the circular array and having it cross the end of the array in physical memory.
+These buffers are toy in the sense that all the data is dequeued out in the same logical step of the program as the data is pushed into them.
+STCP doens't strictly nessistate data persistance accross network receive events because the underlying network is reliable. As such we've
+implemented the circular buffers more for pedagogical reasons.
+
+# State Machine
+We've implemented the simplified TCP state machine with the exception of the handshake states (listen, syn-received, syn-sent), and the time-wait state.
+Simultaneous open is not supported but simultanious close is. (We followed the STCP project instructions for handshaking which doesn't callout simul-open)
+
+# ACKs
+We ACK every package supplying the updated window size after having read the data into the circular buffer. This simulates the real TCP's implmentation of a 
+dynamic window. The circular buffer is subsequently flushed and the data is pushed up to the app layer after sending the ACK.
+
+# Note about Bit Masks
+We were having trouble getting mutual exclusion in our bitmask checks. i.e. "if (flags & (TH_SYN | TH_ACK))" would return true even if only the TH_ACK bit is set. This may be
+a misunderstanding of bit manipulation on our hand. Regardless we put a number of hours into debugging this issue (it was causing mismatched seq and ack numbers). The workaround
+we use it to just directly compare "flags == TH_ACK" -> works for our purposes. We recognize that the bit mapipulation approach is preferred.
+
+# "system call" return values
+- stcp_network_send -> If it returns -1 we set errno and exit(1)
+- stcp_network_recv -> we assert that it contains atleast a header (len >= 20)
+- stcp_app_send -> The comments in the api.c and api.h file don't make clear what this does when it fails. Its also returns void so we can't check that...
+- stcp_app_recv -> If this returns < 1 we set errno and exit(1). Again documentation doesn't make clear how it fails. Assuming it fails by returning 0
+
