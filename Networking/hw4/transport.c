@@ -242,8 +242,11 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
       assert(ctx->hdr);
       // assert(ntohl(hdr->th_seq) == ctx->ack_num);
-      ctx->ack_num += rcv_len - sizeof(STCPHeader);
+      // ctx->ack_num += rcv_len - sizeof(STCPHeader);
+      my_inc_ack(ctx, hdr->th_flags, rcv_len);
       printf("updated ack_num to: %d\n", ctx->ack_num);
+      printf("recieved ack %d | my sn is: %d\n", ntohl(hdr->th_ack),
+             ctx->seq_num);
       assert(ntohl(hdr->th_ack) == ctx->seq_num);
       stcp_app_send(sd, ctx->tmp_buf + sizeof(STCPHeader),
                     rcv_len - sizeof(STCPHeader));
@@ -260,6 +263,8 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           stcp_fin_received(sd);
           assert(ctx->hdr);
         }
+        printf("sending ack with ack_num: %d\n", ctx->ack_num);
+        my_send(ctx, TH_ACK, NULL, 0);
       } else if (ctx->connection_state == FIN_WAIT_1) {
         // goto FIN wait 2
         if (hdr->th_flags & TH_ACK) {
