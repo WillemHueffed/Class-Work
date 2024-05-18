@@ -220,10 +220,16 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
 
         int rcv_len = stcp_app_recv(sd, ctx->tmp_buf, STCP_MSS);
+        printf("before network send - sn: %d | ack: %d\n", ctx->seq_num,
+               ctx->ack_num);
         my_send(ctx, 0, ctx->tmp_buf, rcv_len);
+        printf("after network send - sn: %d | ack: %d\n\n", ctx->seq_num,
+               ctx->ack_num);
       }
     }
     if (event & NETWORK_DATA) {
+      printf("start network recv - sn: %d | ack: %d\n", ctx->seq_num,
+             ctx->ack_num);
       assert(ctx->hdr);
 
       memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
@@ -293,6 +299,8 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           assert(0);
         }
       }
+      printf("end network recv - sn: %d | ack: %d\n\n", ctx->seq_num,
+             ctx->ack_num);
     }
     if (event & APP_CLOSE_REQUESTED) {
       if ((ctx->connection_state == CSTATE_ESTABLISHED) ||
@@ -415,7 +423,7 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
              (flags & (TH_FIN | TH_ACK))) {
     ctx->seq_num += 1;
   } else {
-    printf("sending data packet\n");
+    printf("sending data packet of len %d\n", buff_len);
     ctx->seq_num += buff_len;
   }
 
