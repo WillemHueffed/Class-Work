@@ -67,6 +67,9 @@ typedef struct {
   char tmp_buf[STCP_MSS + 20];
   STCPHeader *hdr;
 
+  // helper buffer for "simulating" our circular buffers
+  char app_buf[WINDOW_SIZE];
+
   /* any other connection-wide global variables go here */
   mysocket_t sd;
 } context_t;
@@ -239,21 +242,29 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
       STCPHeader *hdr = ctx->hdr;
       memset(hdr, 0, sizeof(STCPHeader));
       memcpy(hdr, ctx->tmp_buf, sizeof(STCPHeader));
+      printf("advertized window size is: %d\n", ntohs(hdr->th_win));
       assert(ctx->hdr);
+      // th_win could technically be zero if buffer is full -> unlikely ->
+      // sanity check to ensure I'm writing the field
+      assert(hdr->th_win > 0);
+      ctx->rcvr_wndw = ntohs(hdr->th_win);
       // assert(ntohl(hdr->th_seq) == ctx->ack_num);
-      // ctx->ack_num += rcv_len - sizeof(STCPHeader);
       my_inc_ack(ctx, hdr->th_flags, rcv_len);
       printf("updated ack_num to: %d\n", ctx->ack_num);
       printf("recieved ack %d | my sn is: %d\n", ntohl(hdr->th_ack),
              ctx->seq_num);
+
+      // Push data into cbuff
+      assert(rcv_len - sizeof(STCPHeader) <= ctx->rcv_buff.free_bytes);
+      for (int i = sizeof(STCPHeader); i < rcv_len; i++) {
+        push_to_cbuff(ctx->tmp_buf[i], &ctx->rcv_buff);
+      }
+      // printf("cbuff contains: %s\n", ctx->rcv_buff.wndw);
+
       // This assert will fail, server sends 2 packets gets ack for packet 1
       // while server side sn is updated to packet 2 assert(ntohl(hdr->th_ack)
       // == ctx->seq_num); We don't have to implement retransmit but I think
       // assert(ntohl(hdr->th_ack) <= ctx->seq_num) is more appropriate?
-      stcp_app_send(sd, ctx->tmp_buf + sizeof(STCPHeader),
-                    rcv_len - sizeof(STCPHeader));
-      memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
-      assert(ctx->hdr);
 
       if (ctx->connection_state == CSTATE_ESTABLISHED) {
         // If FIN flag is set
@@ -308,8 +319,18 @@ static void control_loop(mysocket_t sd, context_t *ctx) {
           assert(0);
         }
       }
-      printf("end network recv - sn: %d | ack: %d\n\n", ctx->seq_num,
-             ctx->ack_num);
+      // printf("end network recv - sn: %d | ack: %d\n\n", ctx->seq_num,
+      // ctx->ack_num);
+      // printf("pushing data from rcvr buffer up to app layer...\n");
+      // printf("\ncbuff is currently: %s\n", ctx->rcv_buff.wndw);
+      int i = 0;
+      for (; ctx->rcv_buff.free_bytes != WINDOW_SIZE; i++) {
+        ctx->app_buf[i] = deq_from_cbuff(&ctx->rcv_buff);
+      }
+      // printf("free bytes: %d\n", ctx->rcv_buff.free_bytes);
+      stcp_app_send(sd, ctx->app_buf, i);
+      memset(ctx->app_buf, 0, sizeof(ctx->app_buf));
+      memset(ctx->tmp_buf, 0, sizeof(ctx->tmp_buf));
     }
     if (event & APP_CLOSE_REQUESTED) {
       if ((ctx->connection_state == CSTATE_ESTABLISHED) ||
@@ -370,6 +391,9 @@ void push_to_cbuff(char val, cbuff *buff) {
       ((*rear + 1) % WINDOW_SIZE == *front)) {
     perror("buffer overflow");
     exit(1);
+  } else if (*front == -1) {
+    *front = *rear = 0;
+    cbuff[*rear] = val;
   } else if (*rear == WINDOW_SIZE - 1 && *front != 0) {
     *rear = 0;
     cbuff[*rear] = val;
@@ -411,7 +435,7 @@ void my_send(context_t *ctx, uint8_t flags, char *snd_buff, uint buff_len) {
   hdr->th_off = 5;
   hdr->th_seq = htonl(ctx->seq_num);
   hdr->th_ack = htonl(ctx->ack_num);
-  hdr->th_win = htons(WINDOW_SIZE);
+  hdr->th_win = htons(ctx->rcv_buff.free_bytes);
   // TODO: we maybe shouldn't be incrementing by +1 for a sequence number
   if (flags == TH_ACK) {
     printf("sending ack\n");
