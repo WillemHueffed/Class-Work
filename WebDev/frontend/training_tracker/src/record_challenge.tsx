@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface Segment {
   id: number;
@@ -15,12 +15,18 @@ interface Challenge {
 const Record_Challenge: React.FC = () => {
   const location = useLocation();
   const challengeData = location.state as { challenge: Challenge } | null;
+  const navigate = useNavigate();
 
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [time, setTime] = useState(0);
   const [segmentTimes, setSegmentTimes] = useState<Segment[]>(challengeData?.challenge.segments || []);
   const timerRef = useRef<number | null>(null);
+
+  const goToHomeScreen= () => {
+    navigate('/');
+  };
 
   useEffect(() => {
     if (isRunning && !isPaused) {
@@ -53,6 +59,7 @@ const Record_Challenge: React.FC = () => {
   };
 
   const handleEnd = () => {
+    setIsCompleted(true);
     setIsRunning(false);
   };
 
@@ -73,7 +80,17 @@ const Record_Challenge: React.FC = () => {
           </li>
         ))}
       </ul>
-      {!isRunning && <button onClick={handleStart}>Start</button>}
+      {!isRunning && !isCompleted &&(
+        <>
+          <button onClick={handleStart}>Start</button>
+          <button onClick={goToHomeScreen}>Home</button>
+        </>
+      )}
+      {!isRunning && isCompleted &&(
+        <>
+          <button onClick={goToHomeScreen}>Home</button>
+        </>
+      )}
       {isRunning && !isPaused && (
         <>
           <button onClick={handleNextSegment}>Next Segment</button>

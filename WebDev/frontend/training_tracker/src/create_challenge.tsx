@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 interface Segment {
   id: number;
   name: string;
@@ -8,6 +9,11 @@ const Create_Challenge: React.FC = () => {
   const [challengeName, setChallengeName] = useState('');
   const [segments, setSegments] = useState<Segment[]>([]);
   const [nextSegmentId, setNextSegmentId] = useState(1);
+  const navigate = useNavigate();
+
+  const goToHomeScreen= () => {
+    navigate('/');
+  };
 
   const handleChallengeNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setChallengeName(e.target.value);
@@ -77,6 +83,8 @@ const Create_Challenge: React.FC = () => {
       <br />
       <button onClick={cancel}>Cancel</button>
       <button onClick={saveChallenge}>Save Challenge</button>
+      <br />
+      <button onClick={goToHomeScreen}>Home</button>
     </div>
   );
 };
