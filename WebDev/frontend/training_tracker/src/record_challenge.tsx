@@ -22,11 +22,24 @@ const Record_Challenge: React.FC = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [time, setTime] = useState(0);
   const [segmentTimes, setSegmentTimes] = useState<Segment[]>(challengeData?.challenge.segments || []);
+  const [bestSegmentTimes, setBestSegmentTimes] = useState<Segment[]>([]);
+
   const timerRef = useRef<number | null>(null);
 
-  const goToHomeScreen= () => {
+  const goToHomeScreen = () => {
     navigate('/');
   };
+
+  useEffect(() => {
+    if (challengeData?.challenge.challengeName) {
+      const savedBestTimes = localStorage.getItem(challengeData.challenge.challengeName);
+      if (savedBestTimes) {
+        setBestSegmentTimes(JSON.parse(savedBestTimes));
+      } else {
+        setBestSegmentTimes(challengeData.challenge.segments.map(segment => ({ ...segment })));
+      }
+    }
+  }, [challengeData]);
 
   useEffect(() => {
     if (isRunning && !isPaused) {
@@ -61,10 +74,33 @@ const Record_Challenge: React.FC = () => {
   const handleEnd = () => {
     setIsCompleted(true);
     setIsRunning(false);
+    updateBestTimes();
   };
 
   const handlePauseResume = () => {
     setIsPaused(prevIsPaused => !prevIsPaused);
+  };
+
+  const updateBestTimes = () => {
+    if (challengeData?.challenge.challengeName) {
+      const newBestTimes = segmentTimes.map((segment, index) => {
+        if (bestSegmentTimes[index].time === undefined || segment.time! < bestSegmentTimes[index].time!) {
+          return { ...segment };
+        } else {
+          return { ...bestSegmentTimes[index] };
+        }
+      });
+      setBestSegmentTimes(newBestTimes);
+      localStorage.setItem(challengeData.challenge.challengeName, JSON.stringify(newBestTimes));
+    }
+  };
+
+  const getColor = (currentTime?: number, bestTime?: number) => {
+    if (currentTime === undefined) return 'black';
+    if (bestTime === undefined) return 'green';
+    if (currentTime < bestTime) return 'green';
+    if (currentTime > bestTime) return 'red';
+    return 'yellow';
   };
 
   return (
@@ -75,30 +111,30 @@ const Record_Challenge: React.FC = () => {
       </div>
       <ul>
         {segmentTimes.map((segment, index) => (
-          <li key={segment.id}>
+          <li key={segment.id} style={{ color: getColor(segment.time, bestSegmentTimes[index]?.time) }}>
             {segment.name}: {segment.time !== undefined ? `${segment.time}s` : 'Not completed'}
           </li>
         ))}
       </ul>
-      {!isRunning && !isCompleted &&(
+      {!isRunning && !isCompleted && (
         <>
           <button onClick={handleStart}>Start</button>
           <button onClick={goToHomeScreen}>Home</button>
         </>
       )}
-      {!isRunning && isCompleted &&(
+      {!isRunning && isCompleted && (
         <>
           <button onClick={goToHomeScreen}>Home</button>
         </>
       )}
-      {isRunning && !isPaused && (
+      {isRunning && !isPaused && !isCompleted && (
         <>
-          <button onClick={handleNextSegment}>Next Segment</button>
+          {segmentTimes.some(segment => segment.time === undefined) && <button onClick={handleNextSegment}>Next Segment</button>}
           <button onClick={handleEnd}>End</button>
           <button onClick={handlePauseResume}>Pause</button>
         </>
       )}
-      {isRunning && isPaused && (
+      {isRunning && isPaused && !isCompleted && (
         <button onClick={handlePauseResume}>Resume</button>
       )}
     </div>
@@ -106,3 +142,4 @@ const Record_Challenge: React.FC = () => {
 };
 
 export default Record_Challenge;
+

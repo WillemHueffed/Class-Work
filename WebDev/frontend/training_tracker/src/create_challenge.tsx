@@ -44,7 +44,6 @@ const Create_Challenge: React.FC = () => {
       localStorage.setItem('challenges', JSON.stringify(savedChallenges));
       
       console.log('Challenge saved:', newChallenge);
-      // Reset the form or navigate to another page
       setChallengeName('');
       setSegments([]);
     } else {
@@ -53,7 +52,6 @@ const Create_Challenge: React.FC = () => {
   };
 
   const cancel = () => {
-    // Reset the form or navigate to another page
     setChallengeName('');
     setSegments([]);
   };
