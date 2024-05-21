@@ -3,6 +3,7 @@
    and the user has not already written a review for the book.
 
    POST localhost:3000/reviews/
+- done? need to add auth though 
 
 
 2. Edit the rating and/or text of an existing review. A user can only edit a review that they posted.
@@ -24,12 +25,14 @@
    as well as the username of the user who posted the review. The user does not need to be logged in to do this.
 
    GET localhost:3000/reviews/:reviewID
+- done
 
 
 6. List all of the reviews for a specific author. This should return the same information as 
    the previous endpoint except for all the books written by the author.
 
    GET localhost:3000/reviews/byAuthor/:authorID
+- done
 
 
 7. List all of the comments for a specific review. The user does not need to be logged in to do this.

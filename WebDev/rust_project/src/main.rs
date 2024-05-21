@@ -1,40 +1,112 @@
 mod model;
-
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
 use actix_web::{get, post, web, App, HttpResponse, HttpServer};
-use model::{Book, PostReview, Review};
-use mongodb::{bson::doc, Client, Collection};
+use futures::stream::StreamExt;
+use model::{Book, Comment, PostReview, Review};
+use mongodb::{
+    bson::{doc, oid::ObjectId, Bson},
+    Client, Collection,
+};
+use serde::Deserialize;
 use serde_json::json;
 use uuid::Uuid;
-//use serde::Deserialize;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
 
 #[get("/reviews/byAuthor/{id}")]
-async fn get_reviews(client: web::Data<Client>, id: web::Path<String>) -> HttpResponse {
+async fn get_reviews_by_author(client: web::Data<Client>, id: web::Path<String>) -> HttpResponse {
     let id = id.into_inner();
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
-    match collection.find_one(doc! { "authorID": &id}, None).await {
-        Ok(Some(user)) => HttpResponse::Ok().json(user),
-        Ok(None) => HttpResponse::NotFound().body(format!("No author found with id {id}")),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+
+    let filter = doc! { "authorID": id };
+
+    let mut cursor = match collection.find(filter, None).await {
+        Ok(cursor) => cursor,
+        Err(err) => {
+            eprintln!("Error creating cursor: {:?}", err);
+            return HttpResponse::InternalServerError().body("Error fetching reviews");
+        }
+    };
+
+    let mut reviews = Vec::new();
+    while let Some(result) = cursor.next().await {
+        match result {
+            Ok(review) => reviews.push(review),
+            Err(err) => {
+                eprintln!("Error reading review: {:?}", err);
+                return HttpResponse::InternalServerError().body("Error reading reviews");
+            }
+        }
     }
+
+    HttpResponse::Ok().json(reviews)
 }
 
-#[post("/")]
-async fn post_comment(client: web::Data<Client>) -> HttpResponse {
-    let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
-    let mut cursor = collection.find(doc! {}, None).await.expect("REASON");
-    let mut reviews: Vec<Review> = Vec::new();
-    while cursor.advance().await.expect("reason") {
-        let review: Review = cursor.deserialize_current().unwrap();
-        println!("{:?}", review);
-        reviews.push(review);
-        //println!("{:?}", cursor.deserialize_current().unwrap());
+#[get("/reviews/byBook/{id}")]
+async fn get_reviews_by_book(client: web::Data<Client>, id: web::Path<String>) -> HttpResponse {
+    let id = id.into_inner();
+    let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
+
+    let filter = doc! { "bookID": id };
+
+    let mut cursor = match collection.find(filter, None).await {
+        Ok(cursor) => cursor,
+        Err(err) => {
+            eprintln!("Error creating cursor: {:?}", err);
+            return HttpResponse::InternalServerError().body("Error fetching reviews");
+        }
+    };
+
+    let mut reviews = Vec::new();
+    while let Some(result) = cursor.next().await {
+        match result {
+            Ok(review) => reviews.push(review),
+            Err(err) => {
+                eprintln!("Error reading review: {:?}", err);
+                return HttpResponse::InternalServerError().body("Error reading reviews");
+            }
+        }
     }
+
     HttpResponse::Ok().json(reviews)
+}
+
+#[derive(Deserialize)]
+struct PostComment {
+    comment: String,
+}
+//#[post("/reviews/{id}/comments")]
+#[post("/reviews/{id}/comments")]
+async fn post_comment(
+    req: web::Json<PostComment>,
+    id: web::Path<String>,
+    client: web::Data<Client>,
+) -> HttpResponse {
+    println!("function called");
+    let id = id.into_inner();
+    if req.comment.is_empty() {
+        return HttpResponse::BadRequest().into();
+    }
+
+    let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
+
+    let update_doc = doc! { "$push": doc! {"comments": doc! { "comment": req.comment.clone(), "commentID": Bson::String(Uuid::new_v4().to_string()), "userID": "_"}}};
+
+    match collection
+        .update_one(doc! { "reviewID": id}, update_doc, None)
+        .await
+    {
+        Ok(result) => {
+            if result.matched_count > 0 {
+                return HttpResponse::Ok().into();
+            } else {
+                return HttpResponse::NotFound().json(json! ({ "error": "review not found"}));
+            }
+        }
+        Err(_e) => HttpResponse::InternalServerError().into(),
+    }
 }
 
 #[post("/reviews/{bookID}")]
@@ -97,8 +169,9 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(client.clone()))
-            .service(get_reviews)
+            .service(get_reviews_by_author)
             .service(create_review)
+            .service(post_comment)
     })
     .bind(("localhost", 3002))?
     .run()

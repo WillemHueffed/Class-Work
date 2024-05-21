@@ -1,6 +1,5 @@
 curl -X POST \
-  -v \
+  http://localhost:3002 \
   -H 'Content-Type: application/json' \
-  http://localhost:3002/reviews/1 \
   -d '{"description": "desc", "rating": "5"}'
 
