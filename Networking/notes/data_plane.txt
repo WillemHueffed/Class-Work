@@ -1,0 +1,45 @@
+# Data Plane - 5/16
+
+## review
+- Control plane: routing -> fowarding table (global)
+- Data plane: fowarding - input -> output (local)
+
+## Network Addresses
+- Each network adapter card has its own IP addr
+- Two ways to structure an IPv4 addr
+  - Hierarchical/Geographic -> locations close together share more digits/prefix
+  - Flat -> no relationship
+- IP addr represented in "dotted-quad" notation
+
+## Hierarchical IP Addresses
+- IP = subnet ID (high-order bits, IP prefix) | host ID (low-order bits)
+- 12.34.158.0/24 is a 24 bit prefix with 2^8 addresses
+- Inter-domain routing operates on the network prefix
+- Desintation network operates on the network component
+
+## Subnets
+- Subnet is identified by network id
+
+## CIDR - Classless Inter-Domain Routing
+- Introduces a hierarchical process for assignment of addresses
+- Gives up simple notion of "network part" and "host part" of fixed sizes
+- Past: use two 32 bit numbers to represent network:
+  - Network number = IP addr + Mask
+- ex: IP Addr: 12.4.0.0 - IP Mask: 255.254.0.0
+
+## NAT - network address translation
+- All datatrams leaving local network have the same single source NAT IP addr
+- Port number is bottleneck
+
+## IP Fragmentation
+- network links have MTU (max transfer size) - largest possible link-level frame
+- large ip datagram divided within networks
+  - one datagram becomes several datagrams
+  - reassmbed only at final destination
+
+## Routers
+- terms:
+  - N = number of external ports
+  - R = speed ("line rate") of a port
+  - Router capacity = N * R
+
