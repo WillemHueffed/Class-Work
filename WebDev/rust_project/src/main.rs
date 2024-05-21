@@ -16,14 +16,14 @@ const COLL_NAME: &str = "reviews";
 async fn get_reviews(client: web::Data<Client>, id: web::Path<String>) -> HttpResponse {
     let id = id.into_inner();
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
-    match collection.find_one(doc! { "review_id": &id}, None).await {
+    match collection.find_one(doc! { "authorID": &id}, None).await {
         Ok(Some(user)) => HttpResponse::Ok().json(user),
-        Ok(None) => HttpResponse::NotFound().body(format!("No user found with username {id}")),
+        Ok(None) => HttpResponse::NotFound().body(format!("No author found with id {id}")),
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
 
-#[get("/")]
+#[post("/")]
 async fn post_comment(client: web::Data<Client>) -> HttpResponse {
     let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
     let mut cursor = collection.find(doc! {}, None).await.expect("REASON");
