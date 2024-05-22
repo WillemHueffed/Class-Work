@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Comments</title>
+  </head>
+  <body>
+    <h1>Comments</h1>
+    <div>
+      <label for="reviewId">Enter Review ID:</label>
+      <input type="text" id="reviewId" name="reviewId" value="" />
+      <button onclick="getComments()">Get Comments</button>
+    </div>
+    <div id="comments"></div>
+
+    <script>
+      function getComments() {
+        const reviewId = document.getElementById("reviewId").value;
+        fetch(`http://localhost:3002/reviews/${reviewId}/comments`)
+          .then((response) => response.json())
+          .then((comments) => {
+            const commentsDiv = document.getElementById("comments");
+            commentsDiv.innerHTML = "";
+            comments.forEach((comment) => {
+              const commentElement = document.createElement("div");
+              let commentContent = "";
+              for (const key in comment) {
+                if (comment.hasOwnProperty(key)) {
+                  commentContent += `<p>${key}: ${comment[key]}</p>`;
+                }
+              }
+              commentElement.innerHTML = commentContent;
+              commentElement.innerHTML += "<hr>";
+              commentsDiv.appendChild(commentElement);
+            });
+          })
+          .catch((error) => console.error("Error fetching comments:", error));
+      }
+
+      window.onload = getComments;
+    </script>
+  </body>
+</html>

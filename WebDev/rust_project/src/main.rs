@@ -1,7 +1,8 @@
 mod model;
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
-use actix_web::{delete, get, patch, post, web, App, HttpResponse, HttpServer};
+use actix_files as fs;
+use actix_web::{delete, get, http::StatusCode, patch, post, web, App, HttpResponse, HttpServer};
 use futures::stream::StreamExt;
 use model::{Book, Comment, PostReview, Review};
 use mongodb::{
@@ -10,6 +11,7 @@ use mongodb::{
 };
 use serde::Deserialize;
 use serde_json::json;
+use std::path::PathBuf;
 use uuid::Uuid;
 
 const DB_NAME: &str = "WebDev";
@@ -253,6 +255,54 @@ async fn create_review(
     HttpResponse::Created().json(json!({ "reviewID": review_id}))
 }
 
+async fn html_delete_comment() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/delete_comment.html"))
+}
+
+async fn html_get_authors() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/get_authors.html"))
+}
+
+async fn html_get_comments_by_review() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/get_comments_by_review.html"))
+}
+
+async fn html_get_reviews_by_author() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/get_reviews_by_author.html"))
+}
+
+async fn html_get_reviews_by_book() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/get_reviews_by_book.html"))
+}
+
+async fn html_patch_review() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/patch_review.html"))
+}
+
+async fn html_post_comment() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/post_comment.html"))
+}
+
+async fn html_post_review() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/post_review.html"))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Parse a connection string into an options struct.
@@ -261,9 +311,27 @@ async fn main() -> std::io::Result<()> {
         .await
         .expect("failed to connected");
 
+    // I tried really hard to just serve the static directory directly but to no luck. stuff just
+    // keeped returning 404s so this is my tedious work around
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(client.clone()))
+            .route("/delete_comment.html", web::get().to(html_delete_comment))
+            .route("/get_authors.html", web::get().to(html_get_authors))
+            .route(
+                "/get_comments_by_review.html",
+                web::get().to(html_get_comments_by_review),
+            )
+            .route(
+                "/get_reviews_by_author.html",
+                web::get().to(html_get_reviews_by_author),
+            )
+            .route(
+                "/get_reviews_by_book.html",
+                web::get().to(html_get_reviews_by_book),
+            )
+            .route("/patch_review.html", web::get().to(html_patch_review))
+            .route("/post_comment.html", web::get().to(html_post_comment))
+            .route("/post_review.html", web::get().to(html_post_review))
             .service(get_reviews_by_author)
             .service(get_reviews_by_book)
             .service(create_review)
@@ -271,6 +339,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_comments)
             .service(patch_review)
             .service(delete_comment)
+            .app_data(web::Data::new(client.clone()))
     })
     .bind(("localhost", 3002))?
     .run()

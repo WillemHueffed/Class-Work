@@ -21,6 +21,7 @@
 4. Delete a comment. A user can only delete a comment they made.
 
    DELETE localhost:3000/reviews/:reviewID/comments/:commentID
+- done
 
 
 5. List all of the reviews for a specific book. Each entry in the list should contain the rating and text of the review 
