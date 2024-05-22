@@ -2,20 +2,60 @@ mod model;
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
 use actix_files as fs;
+use actix_web::Error; // this might be the wrong error import the validator returns an "Error" type
+                      // though
+use actix_web::dev::ServiceRequest;
 use actix_web::{delete, get, http::StatusCode, patch, post, web, App, HttpResponse, HttpServer};
+use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
+use actix_web_httpauth::extractors::AuthenticationError;
+use actix_web_httpauth::middleware::HttpAuthentication;
 use futures::stream::StreamExt;
+use jsonwebtoken::{decode, Algorithm, DecodingKey, TokenData, Validation};
 use model::{Book, Comment, PostReview, Review};
 use mongodb::{
     bson::{doc, document, oid::ObjectId, Bson},
     Client, Collection,
 };
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json::json;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
+
+// middleware functions
+
+#[derive(Deserialize, Debug, Serialize)]
+struct Claims {
+    audience: String,
+    issuerBaseURL: String,
+    tokenSigningAlg: String,
+}
+
+const SECRET_KEY: &[u8] = b"your_secret_key"; // Use a secure method to manage your secret key
+
+fn validate_token(token: &str) -> Result<TokenData<Claims>, jsonwebtoken::errors::Error> {
+    let validation = Validation::new(Algorithm::HS256);
+    decode::<Claims>(token, &DecodingKey::from_secret(SECRET_KEY), &validation)
+}
+
+async fn validator(
+    req: ServiceRequest,
+    credentials: BearerAuth,
+) -> Result<ServiceRequest, (Error, ServiceRequest)> {
+    // Access the config directly without get_ref
+    let config = req
+        .app_data::<actix_web_httpauth::extractors::bearer::Config>()
+        .cloned()
+        .unwrap_or_else(Default::default);
+
+    match validate_token(credentials.token()) {
+        Ok(_) => Ok(req),
+        Err(_) => Err((AuthenticationError::from(config).into(), req)),
+    }
+}
 
 #[derive(Deserialize)]
 struct PatchReview {
@@ -75,7 +115,6 @@ async fn delete_comment(
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
 
     let filter = doc! { "reviewID": review_id, "comments.commentID": comment_id.clone() };
-    //let update_doc = doc! { "$pull": doc! { "comments.commentID": comment_id.clone() }};
     let update_doc = doc! { "$pull": { "comments": { "commentID": comment_id.clone() } } };
 
     match collection.update_one(filter, update_doc, None).await {
@@ -314,7 +353,9 @@ async fn main() -> std::io::Result<()> {
     // I tried really hard to just serve the static directory directly but to no luck. stuff just
     // keeped returning 404s so this is my tedious work around
     HttpServer::new(move || {
+        let auth = HttpAuthentication::bearer(validator);
         App::new()
+            // Routes without authentication
             .route("/delete_comment.html", web::get().to(html_delete_comment))
             .route("/get_authors.html", web::get().to(html_get_authors))
             .route(
@@ -332,13 +373,18 @@ async fn main() -> std::io::Result<()> {
             .route("/patch_review.html", web::get().to(html_patch_review))
             .route("/post_comment.html", web::get().to(html_post_comment))
             .route("/post_review.html", web::get().to(html_post_review))
-            .service(get_reviews_by_author)
-            .service(get_reviews_by_book)
-            .service(create_review)
-            .service(post_comment)
-            .service(get_comments)
-            .service(patch_review)
-            .service(delete_comment)
+            // Sub-app with authentication middleware
+            .service(
+                web::scope("/api")
+                    .wrap(auth)
+                    .service(get_reviews_by_author)
+                    .service(get_reviews_by_book)
+                    .service(create_review)
+                    .service(post_comment)
+                    .service(get_comments)
+                    .service(patch_review)
+                    .service(delete_comment),
+            )
             .app_data(web::Data::new(client.clone()))
     })
     .bind(("localhost", 3002))?
