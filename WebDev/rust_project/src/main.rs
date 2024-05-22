@@ -1,11 +1,11 @@
 mod model;
 //use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 //use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
-use actix_web::{get, post, web, App, HttpResponse, HttpServer};
+use actix_web::{delete, get, patch, post, web, App, HttpResponse, HttpServer};
 use futures::stream::StreamExt;
 use model::{Book, Comment, PostReview, Review};
 use mongodb::{
-    bson::{doc, oid::ObjectId, Bson},
+    bson::{doc, document, oid::ObjectId, Bson},
     Client, Collection,
 };
 use serde::Deserialize;
@@ -14,6 +14,82 @@ use uuid::Uuid;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
+
+#[derive(Deserialize)]
+struct PatchReview {
+    rating: String,
+    desc: String,
+}
+
+// TODO: Add auth check
+#[patch("/reviews/{id}")]
+async fn patch_review(
+    client: web::Data<Client>,
+    info: web::Json<PatchReview>,
+    id: web::Path<String>,
+) -> HttpResponse {
+    let id = id.into_inner();
+
+    if info.rating.is_empty() && info.desc.is_empty() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
+    let filter = doc! { "reviewID": id };
+
+    let update_doc;
+    if info.rating.is_empty() && !info.desc.is_empty() {
+        update_doc = doc! { "desc": info.desc.clone()};
+    } else if !info.rating.is_empty() && info.desc.is_empty() {
+        update_doc = doc! { "rating": info.rating.clone()};
+    } else {
+        update_doc = doc! { "desc": info.desc.clone(), "rating": info.rating.clone()};
+    }
+    match collection
+        .update_one(filter, doc! { "$set": update_doc}, None)
+        .await
+    {
+        Ok(result) => {
+            if result.matched_count > 0 {
+                return HttpResponse::Ok().finish();
+            } else {
+                return HttpResponse::NotFound().finish();
+            }
+        }
+        Err(err) => {
+            println!("DB error: {:?}", err);
+            return HttpResponse::InternalServerError().finish();
+        }
+    }
+}
+
+// TODO: Add auth check
+#[delete["/reviews/{reviewID}/comments/{commentID}"]]
+async fn delete_comment(
+    client: web::Data<Client>,
+    path: web::Path<(String, String)>,
+) -> HttpResponse {
+    let (review_id, comment_id) = path.into_inner();
+    let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
+
+    let filter = doc! { "reviewID": review_id, "comments.commentID": comment_id.clone() };
+    //let update_doc = doc! { "$pull": doc! { "comments.commentID": comment_id.clone() }};
+    let update_doc = doc! { "$pull": { "comments": { "commentID": comment_id.clone() } } };
+
+    match collection.update_one(filter, update_doc, None).await {
+        Ok(result) => {
+            if result.matched_count > 0 {
+                return HttpResponse::Ok().finish();
+            } else {
+                return HttpResponse::NotFound().finish();
+            }
+        }
+        Err(err) => {
+            println!("DB error: {:?}", err);
+            return HttpResponse::InternalServerError().finish();
+        }
+    }
+}
 
 #[get("/reviews/byAuthor/{id}")]
 async fn get_reviews_by_author(client: web::Data<Client>, id: web::Path<String>) -> HttpResponse {
@@ -87,7 +163,7 @@ async fn post_comment(
     println!("function called");
     let id = id.into_inner();
     if req.comment.is_empty() {
-        return HttpResponse::BadRequest().into();
+        return HttpResponse::BadRequest().finish();
     }
 
     let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
@@ -100,13 +176,32 @@ async fn post_comment(
     {
         Ok(result) => {
             if result.matched_count > 0 {
-                return HttpResponse::Ok().into();
+                return HttpResponse::Ok().finish();
             } else {
                 return HttpResponse::NotFound().json(json! ({ "error": "review not found"}));
             }
         }
-        Err(_e) => HttpResponse::InternalServerError().into(),
+        Err(_e) => HttpResponse::InternalServerError().finish(),
     }
+}
+
+#[get("/reviews/{id}/comments")]
+async fn get_comments(id: web::Path<String>, client: web::Data<Client>) -> HttpResponse {
+    let id = id.into_inner();
+
+    let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
+
+    let result = match collection.find_one(doc! {"reviewID": id}, None).await {
+        Ok(cursor) => cursor,
+        Err(err) => {
+            eprintln!("Error creating cursor: {:?}", err);
+            return HttpResponse::InternalServerError().body("Error fetching reviews");
+        }
+    };
+
+    let comments = result.unwrap().comments;
+
+    HttpResponse::Ok().json(comments)
 }
 
 #[post("/reviews/{bookID}")]
@@ -116,7 +211,7 @@ async fn create_review(
     mongo_client: web::Data<Client>,
 ) -> HttpResponse {
     let book_id = path.into_inner();
-    let desc = &info.description;
+    let desc = &info.desc;
     let rating = &info.rating;
 
     let res = reqwest::get("http://localhost:3000/books").await;
@@ -170,8 +265,12 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(client.clone()))
             .service(get_reviews_by_author)
+            .service(get_reviews_by_book)
             .service(create_review)
             .service(post_comment)
+            .service(get_comments)
+            .service(patch_review)
+            .service(delete_comment)
     })
     .bind(("localhost", 3002))?
     .run()

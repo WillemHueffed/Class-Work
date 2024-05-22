@@ -52,6 +52,6 @@ pub struct Book {
 
 #[derive(Debug, Deserialize)]
 pub struct PostReview {
-    pub description: String,
+    pub desc: String,
     pub rating: String,
 }
