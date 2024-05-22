@@ -1,59 +1,110 @@
 mod model;
-//use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-//use mongodb::{bson::doc, options::IndexOptions, Client, Collection, IndexModel};
-use actix_files as fs;
-use actix_web::Error; // this might be the wrong error import the validator returns an "Error" type
-                      // though
-use actix_web::dev::ServiceRequest;
-use actix_web::{delete, get, http::StatusCode, patch, post, web, App, HttpResponse, HttpServer};
-use actix_web_httpauth::extractors::bearer::{BearerAuth, Config};
-use actix_web_httpauth::extractors::AuthenticationError;
-use actix_web_httpauth::middleware::HttpAuthentication;
+use actix_web::{
+    delete, error::InternalError, get, http::StatusCode, patch, post, web, web::get, web::post,
+    App, HttpResponse, HttpServer,
+};
+use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
+use chrono::{Duration, Utc};
 use futures::stream::StreamExt;
-use jsonwebtoken::{decode, Algorithm, DecodingKey, TokenData, Validation};
-use model::{Book, Comment, PostReview, Review};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use model::{Book, PostReview, Review};
 use mongodb::{
-    bson::{doc, document, oid::ObjectId, Bson},
+    bson::{doc, Bson},
     Client, Collection,
 };
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
-use std::path::PathBuf;
+use std::future::{ready, Ready};
 use uuid::Uuid;
 
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
 
-// middleware functions
+// auth
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Serialize)]
+pub struct User {
+    email: String,
+}
+
+#[derive(Serialize, Deserialize)]
 struct Claims {
-    audience: String,
-    issuerBaseURL: String,
-    tokenSigningAlg: String,
+    email: String,
+    exp: i64,
 }
 
-const SECRET_KEY: &[u8] = b"your_secret_key"; // Use a secure method to manage your secret key
+pub fn get_jwt(user: User) -> Result<String, String> {
+    let token = encode(
+        &Header::default(),
+        &Claims {
+            email: user.email,
+            exp: (Utc::now() + Duration::minutes(1000)).timestamp(),
+        },
+        &EncodingKey::from_secret("mykey".as_bytes()),
+    )
+    .map_err(|e| e.to_string());
 
-fn validate_token(token: &str) -> Result<TokenData<Claims>, jsonwebtoken::errors::Error> {
-    let validation = Validation::new(Algorithm::HS256);
-    decode::<Claims>(token, &DecodingKey::from_secret(SECRET_KEY), &validation)
+    return token;
 }
 
-async fn validator(
-    req: ServiceRequest,
-    credentials: BearerAuth,
-) -> Result<ServiceRequest, (Error, ServiceRequest)> {
-    // Access the config directly without get_ref
-    let config = req
-        .app_data::<actix_web_httpauth::extractors::bearer::Config>()
-        .cloned()
-        .unwrap_or_else(Default::default);
+pub fn decode_jwt(token: &str) -> Result<User, String> {
+    let token_data = decode::<User>(
+        token,
+        &DecodingKey::from_secret("mykey".as_bytes()),
+        &Validation::default(),
+    );
 
-    match validate_token(credentials.token()) {
-        Ok(_) => Ok(req),
-        Err(_) => Err((AuthenticationError::from(config).into(), req)),
+    match token_data {
+        Ok(token_data) => Ok(token_data.claims),
+
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+struct Auth(User);
+
+impl FromRequest for Auth {
+    type Error = InternalError<String>;
+
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        let access_token = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|str| str.split(" ").nth(1));
+
+        match access_token {
+            Some(token) => {
+                let user = decode_jwt(token);
+
+                match user {
+                    Ok(user) => ready(Ok(Auth(user))),
+
+                    Err(e) => ready(Err(InternalError::from_response(
+                        e.clone(),
+                        HttpResponse::Unauthorized().json(json!({
+                          "success": false,
+                          "data": {
+                            "message": e
+                          }
+                        })),
+                    ))),
+                }
+            }
+
+            None => ready(Err(InternalError::from_response(
+                String::from("No token provided"),
+                HttpResponse::Unauthorized().json(json!({
+                  "success": false,
+                  "data": {
+                    "message": "No token provided"
+                  }
+                })),
+            ))),
+        }
     }
 }
 
@@ -342,6 +393,33 @@ async fn html_post_review() -> HttpResponse {
         .body(include_str!("static/post_review.html"))
 }
 
+async fn get_token_handler(Json(user): Json<User>) -> HttpResponse {
+    let token = get_jwt(user);
+
+    match token {
+        Ok(token) => HttpResponse::Ok().json(json!({
+          "success": true,
+          "data": {
+            "token": token
+          }
+        })),
+
+        Err(error) => HttpResponse::BadRequest().json(json!({
+          "success": false,
+          "data": {
+            "message": error
+          }
+        })),
+    }
+}
+
+async fn secret_view_handler(Auth(user): Auth) -> HttpResponse {
+    HttpResponse::Ok().json(json!({
+      "success": true,
+      "data": user
+    }))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Parse a connection string into an options struct.
@@ -353,9 +431,7 @@ async fn main() -> std::io::Result<()> {
     // I tried really hard to just serve the static directory directly but to no luck. stuff just
     // keeped returning 404s so this is my tedious work around
     HttpServer::new(move || {
-        let auth = HttpAuthentication::bearer(validator);
         App::new()
-            // Routes without authentication
             .route("/delete_comment.html", web::get().to(html_delete_comment))
             .route("/get_authors.html", web::get().to(html_get_authors))
             .route(
@@ -370,21 +446,18 @@ async fn main() -> std::io::Result<()> {
                 "/get_reviews_by_book.html",
                 web::get().to(html_get_reviews_by_book),
             )
+            .route("/get-token", post().to(get_token_handler))
+            .route("/secret-view", get().to(secret_view_handler))
             .route("/patch_review.html", web::get().to(html_patch_review))
             .route("/post_comment.html", web::get().to(html_post_comment))
             .route("/post_review.html", web::get().to(html_post_review))
-            // Sub-app with authentication middleware
-            .service(
-                web::scope("/api")
-                    .wrap(auth)
-                    .service(get_reviews_by_author)
-                    .service(get_reviews_by_book)
-                    .service(create_review)
-                    .service(post_comment)
-                    .service(get_comments)
-                    .service(patch_review)
-                    .service(delete_comment),
-            )
+            .service(get_reviews_by_author)
+            .service(get_reviews_by_book)
+            .service(create_review)
+            .service(post_comment)
+            .service(get_comments)
+            .service(patch_review)
+            .service(delete_comment)
             .app_data(web::Data::new(client.clone()))
     })
     .bind(("localhost", 3002))?
