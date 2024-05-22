@@ -21,8 +21,6 @@ use uuid::Uuid;
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
 
-// auth
-
 #[derive(Deserialize, Serialize)]
 pub struct User {
     email: String,
@@ -397,12 +395,14 @@ async fn get_token_handler(Json(user): Json<User>) -> HttpResponse {
     let token = get_jwt(user);
 
     match token {
-        Ok(token) => HttpResponse::Ok().json(json!({
-          "success": true,
-          "data": {
-            "token": token
-          }
-        })),
+        Ok(token) => HttpResponse::Ok()
+            .cookie(actix_web::cookie::Cookie::build("jwt_token", token.clone()).finish())
+            .json(json!({
+              "success": true,
+              "data": {
+                "token": token
+              }
+            })),
 
         Err(error) => HttpResponse::BadRequest().json(json!({
           "success": false,

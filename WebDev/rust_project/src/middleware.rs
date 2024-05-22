@@ -1,5 +1,5 @@
 // src/middleware.rs
-use actix_web::{dev::Service, dev::ServiceRequest, Error, HttpMessage};
+use actix_web::{cookie, dev::Service, dev::ServiceRequest, Error, HttpMessage};
 use futures::future::{ok, Ready};
 use futures::FutureExt;
 
