@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Comment {
     pub comment: String,
     pub commentID: String,
-    pub userID: String,
+    pub username: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]

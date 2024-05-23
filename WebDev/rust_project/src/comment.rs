@@ -15,14 +15,16 @@ use uuid::Uuid;
 
 #[delete["/reviews/{reviewID}/comments/{commentID}"]]
 pub async fn delete_comment(
-    Auth(_user): Auth,
+    Auth(user): Auth,
     client: web::Data<Client>,
     path: web::Path<(String, String)>,
 ) -> HttpResponse {
     let (review_id, comment_id) = path.into_inner();
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
 
-    let filter = doc! { "reviewID": review_id, "comments.commentID": comment_id.clone() };
+    let filter = doc! { "reviewID": review_id, "comments.commentID": comment_id.clone(),
+    "username": user.username};
+
     let update_doc = doc! { "$pull": { "comments": { "commentID": comment_id.clone() } } };
 
     match collection.update_one(filter, update_doc, None).await {
@@ -46,7 +48,7 @@ pub struct PostComment {
 }
 #[post("/reviews/{id}/comments")]
 pub async fn post_comment(
-    Auth(_): Auth,
+    Auth(user): Auth,
     req: web::Json<PostComment>,
     id: web::Path<String>,
     client: web::Data<Client>,
@@ -59,7 +61,15 @@ pub async fn post_comment(
 
     let collection = client.database(DB_NAME).collection::<Review>(COLL_NAME);
 
-    let update_doc = doc! { "$push": doc! {"comments": doc! { "comment": req.comment.clone(), "commentID": Bson::String(Uuid::new_v4().to_string()), "userID": "_"}}};
+    let update_doc = doc! {
+    "$push": doc! {
+                    "comments": doc! {
+                                        "comment": req.comment.clone(),
+                                        "commentID": Bson::String(Uuid::new_v4().to_string()),
+                                        "username": user.username
+                                        }
+                    }
+    };
 
     match collection
         .update_one(doc! { "reviewID": id}, update_doc, None)

@@ -20,7 +20,7 @@ pub struct PatchReview {
 
 #[patch("/reviews/{id}")]
 pub async fn patch_review(
-    Auth(_user): Auth,
+    Auth(user): Auth,
     client: web::Data<Client>,
     info: web::Json<PatchReview>,
     id: web::Path<String>,
@@ -32,7 +32,7 @@ pub async fn patch_review(
     }
 
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
-    let filter = doc! { "reviewID": id };
+    let filter = doc! { "reviewID": id,  "username": user.username};
 
     let update_doc;
     if info.rating.is_empty() && !info.desc.is_empty() {
