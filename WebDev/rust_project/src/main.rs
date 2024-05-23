@@ -394,7 +394,7 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
             };
             println!{"parsed password: {:?}", parsed_hash};
 
-            if Argon2::default().verify_password(hashed_password.as_bytes(), &parsed_hash).is_ok() {
+            if Argon2::default().verify_password(req.password.as_bytes(), &parsed_hash).is_ok() {
                 return HttpResponse::PermanentRedirect().finish();
             } else {
                 println!{"password verification failed"};
