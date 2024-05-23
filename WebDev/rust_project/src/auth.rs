@@ -5,7 +5,7 @@ const DB_NAME: &str = "WebDev";
 
 use crate::jwt;
 use actix_web::web::Json;
-use actix_web::{get, post, web, HttpResponse};
+use actix_web::{post, web, HttpResponse};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,

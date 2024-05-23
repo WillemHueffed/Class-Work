@@ -1,77 +1,46 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Update Review</title>
-  </head>
-  <body>
-    <h1>Update Review</h1>
-    <label for="reviewIdInput">Enter Review ID:</label>
-    <input type="text" id="reviewIdInput" />
-    <label for="ratingInput">Enter New Rating (out of 5):</label>
-    <input type="number" id="ratingInput" min="1" max="5" />
-    <label for="descriptionInput">Enter New Description:</label>
-    <input type="text" id="descriptionInput" />
-    <button onclick="updateReview()">Update Review</button>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query Endpoint</title>
+</head>
+<body>
+  <button onclick="patchReview()">Patch Review</button>
 
-    <div id="responseDisplay"></div>
+  <script>
+    function patchReview() {
+      const url = 'http://localhost:3002/reviews/3dfbbba8-0e2a-4d87-852c-0b0aed4175ae';
+      const token = localStorage.getItem('jwt_token'); // Retrieve token from local storage
+      const data = {
+        desc: "a new desc",
+        rating: "42"
+      };
 
-    <script>
-      function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-      }
-
-      async function updateReview() {
-      try {
-        const reviewId = document.getElementById("reviewIdInput").value;
-        const rating = document.getElementById("ratingInput").value;
-        const description = document.getElementById("descriptionInput").value;
-        const jwtToken = getCookie('jwt_token');
-
-        if (!jwtToken) {
-          alert('No JWT token found in cookies');
-          return;
+      fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
         }
-
-        const requestData = {};
-
-        if (rating) {
-          requestData.rating = rating;
-        }
-
-        if (description) {
-          requestData.desc = description;
-        }
-
-        const response = await fetch(
-          `http://localhost:3002/reviews/${reviewId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${jwtToken}`,
-            },
-            body: JSON.stringify(requestData),
-          },
-        );
-
-        const responseData = await response.text();
-        const responseDisplay = document.getElementById("responseDisplay");
-
-        if (response.ok) {
-          responseDisplay.textContent = `Review updated successfully!\nResponse: ${responseData}`;
-        } else {
-          responseDisplay.textContent = `Failed to update review: ${response.statusText}\nResponse: ${responseData}`;
-        }
-      } catch (error) {
-        console.error("Error updating review:", error);
-        const responseDisplay = document.getElementById("responseDisplay");
-        responseDisplay.textContent = `Error updating review: ${error.message}`;
-      }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Success:', data);
+        // Handle success response as needed
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        // Handle error response as needed
+      });
     }
-    </script>
-  </body>
+  </script>
+</body>
 </html>
+
