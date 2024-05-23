@@ -395,19 +395,7 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
             println!{"parsed password: {:?}", parsed_hash};
 
             if Argon2::default().verify_password(req.password.as_bytes(), &parsed_hash).is_ok() {
-                return HttpResponse::PermanentRedirect().finish();
-            } else {
-                println!{"password verification failed"};
-                return HttpResponse::InternalServerError().finish();
-            }
 
-            /*
-            // Borrow the password field instead of moving it
-            let password = &req.password;
-            let check = bcrypt::hash_with_salt(password, 4, salt);
-            let check = check.unwrap();
-            if hashed_password == check.to_string() {
-                println!("verified");
                 let user = User {
                     username: req.username.clone(),
                     password: req.password.clone(),
@@ -437,6 +425,12 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
                 println!("not verified");
                 HttpResponse::Unauthorized().finish()
             }
+            } else {
+                println!{"password verification failed"};
+                return HttpResponse::InternalServerError().finish();
+            }
+
+            /*
             */
         }
         Ok(None) => HttpResponse::NotFound().finish(),
