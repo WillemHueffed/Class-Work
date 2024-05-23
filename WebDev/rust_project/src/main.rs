@@ -36,6 +36,9 @@ async fn main() -> std::io::Result<()> {
                 "/get_reviews_by_book.html",
                 web::get().to(html::html_get_reviews_by_book),
             )
+            .route("/signup", web::get().to(html::html_signup))
+            .route("/login", web::get().to(html::html_login))
+            .route("/logout", web::get().to(html::html_logout))
             .route("/get-token", post().to(auth::get_token_handler))
             .route("/secret-view", get().to(auth::secret_view_handler))
             .route("/patch_review.html", web::get().to(html::html_patch_review))

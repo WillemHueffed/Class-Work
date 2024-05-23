@@ -47,3 +47,21 @@ pub async fn html_post_review() -> HttpResponse {
         .content_type("text/html; charset=utf-8")
         .body(include_str!("static/post_review.html"))
 }
+
+pub async fn html_signup() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/signup.html"))
+}
+
+pub async fn html_login() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/login.html"))
+}
+
+pub async fn html_logout() -> HttpResponse {
+    HttpResponse::build(StatusCode::OK)
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("static/logout.html"))
+}

@@ -53,7 +53,7 @@ pub async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpR
                     };
 
                     match collection.insert_one(user, None).await {
-                        Ok(_) => HttpResponse::Created().finish(),
+                        Ok(_) => HttpResponse::Created().json(json!({ "status": "logged in" })),
                         Err(_) => {
                             println!("failed to insert");
                             HttpResponse::InternalServerError().finish()
@@ -135,7 +135,7 @@ pub async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRe
     }
 }
 
-#[get("/logout")]
+#[post("/logout")]
 pub async fn logout() -> HttpResponse {
     let mut no_more_cookies =
         actix_web::cookie::Cookie::build("jwt_token", "no more milk either").finish();
