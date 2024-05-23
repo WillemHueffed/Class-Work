@@ -397,6 +397,7 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
             if Argon2::default().verify_password(hashed_password.as_bytes(), &parsed_hash).is_ok() {
                 return HttpResponse::PermanentRedirect().finish();
             } else {
+                println!{"password verification failed"};
                 return HttpResponse::InternalServerError().finish();
             }
 
@@ -439,7 +440,10 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
             */
         }
         Ok(None) => HttpResponse::NotFound().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Err(_) => {
+            println!("db lookup failed\n");
+            HttpResponse::InternalServerError().finish()
+        }
     }
 }
 
