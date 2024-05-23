@@ -386,13 +386,14 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
     match collection.find_one(filter, None).await {
         Ok(Some(db_acc)) => {
             let hashed_password = db_acc.password;
+            println!{"hashed password: {:?}", hashed_password};
 
             let parsed_hash = match PasswordHash::new(&hashed_password) {
                 Ok(hash) => hash,
                 Err(_) => return HttpResponse::InternalServerError().finish(),
             };
+            println!{"parsed password: {:?}", parsed_hash};
 
-            println!("{:?}", hashed_password);
             if Argon2::default().verify_password(hashed_password.as_bytes(), &parsed_hash).is_ok() {
                 return HttpResponse::PermanentRedirect().finish();
             } else {
