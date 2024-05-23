@@ -29,7 +29,7 @@
           const bookId = document.getElementById("bookIdInput").value;
           const rating = document.getElementById("ratingInput").value;
           const desc = document.getElementById("descriptionInput").value;
-          const jwtToken = getCookie('jwt_token'); // Retrieve the JWT token from cookies
+          const jwtToken = getCookie('jwt_token');
 
           if (!jwtToken) {
             alert('No JWT token found in cookies');
@@ -42,7 +42,7 @@
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${jwtToken}`, // Include the JWT token in the header
+                "Authorization": `Bearer ${jwtToken}`,
               },
               body: JSON.stringify({ rating, desc})
             },

@@ -19,11 +19,19 @@ pub async fn delete_comment(
     client: web::Data<Client>,
     path: web::Path<(String, String)>,
 ) -> HttpResponse {
+    println!("in delete comment: username is - {:?}", user.username);
     let (review_id, comment_id) = path.into_inner();
     let collection: Collection<Review> = client.database(DB_NAME).collection(COLL_NAME);
 
-    let filter = doc! { "reviewID": review_id, "comments.commentID": comment_id.clone(),
-    "username": user.username};
+    let filter = doc! {
+        "reviewID": review_id,
+        "comments": {
+            "$elemMatch": {
+                "commentID": comment_id.clone(),
+                "username": user.username.clone()
+            }
+        }
+    };
 
     let update_doc = doc! { "$pull": { "comments": { "commentID": comment_id.clone() } } };
 
