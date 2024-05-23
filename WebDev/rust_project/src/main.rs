@@ -7,6 +7,10 @@ use actix_web::{
     App, HttpResponse, HttpServer,
 };
 use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
 use chrono::{Duration, Utc};
 use futures::stream::StreamExt;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -20,7 +24,6 @@ use serde::Serialize;
 use serde_json::json;
 use std::future::{ready, Ready};
 use uuid::Uuid;
-
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
 
@@ -291,6 +294,7 @@ struct DBAccount {
     password: String,
 }
 
+/*
 #[post("/signup")]
 async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
     if req.username.is_empty() || req.password.is_empty() {
@@ -322,6 +326,46 @@ async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespo
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
+*/
+
+#[post("/signup")]
+async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
+    if req.username.is_empty() || req.password.is_empty() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let collection = client.database(DB_NAME).collection::<DBAccount>("accounts");
+
+    let filter = doc! { "username": &req.username };
+    match collection.find_one(filter, None).await {
+        Ok(Some(_)) => HttpResponse::Conflict().finish(),
+        Ok(None) => {
+            let password = req.password.clone();
+            let salt = SaltString::generate(&mut OsRng);
+            // Argon2 with default params (Argon2id v19)
+            let argon2 = Argon2::default();
+
+            // Hash password to PHC string ($argon2id$v=19$...)
+            match argon2.hash_password(password.as_bytes(), &salt) {
+                Ok(hash_result) => {
+                    let hashed_password = hash_result.hash.unwrap();
+                    let user = DBAccount {
+                        username: req.username.clone(),
+                        password: hashed_password.to_string(),
+                        salt: salt.to_string(),
+                    };
+
+                    match collection.insert_one(user, None).await {
+                        Ok(_) => HttpResponse::Created().finish(),
+                        Err(_) => HttpResponse::InternalServerError().finish(),
+                    }
+                }
+                Err(_) => HttpResponse::InternalServerError().finish(),
+            }
+        }
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
 
 #[post("/login")]
 async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
@@ -329,39 +373,111 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
         return HttpResponse::BadRequest().finish();
     }
 
-    let collection = client.database(DB_NAME).collection::<Account>("accounts");
+    let collection = client.database(DB_NAME).collection::<DBAccount>("accounts");
 
-    let filter = doc! { "username": &req.username, "password": &req.password };
+    let filter = doc! { "username": &req.username };
     match collection.find_one(filter, None).await {
-        Ok(Some(_)) => {
-            let user = User {
-                username: req.username.clone(),
-                password: req.password.clone(),
-            };
-            let token = get_jwt(user);
+        Ok(Some(db_acc)) => {
+            let hashed_password = db_acc.password;
+            let salt_slice = db_acc.salt.as_bytes();
 
-            match token {
-                Ok(token) => HttpResponse::Ok()
-                    .cookie(actix_web::cookie::Cookie::build("jwt_token", token.clone()).finish())
-                    .json(json!({
-                      "success": true,
+            let salt: [u8; 16] = salt_slice.try_into().expect("slice with incorrect length");
+
+            // Borrow the password field instead of moving it
+            let password = &req.password;
+            let check = bcrypt::hash_with_salt(password, 4, salt);
+            let check = check.unwrap();
+            if hashed_password == check.to_string() {
+                println!("verified");
+                let user = User {
+                    username: req.username.clone(),
+                    password: req.password.clone(),
+                };
+                let token = get_jwt(user);
+
+                match token {
+                    Ok(token) => HttpResponse::Ok()
+                        .cookie(
+                            actix_web::cookie::Cookie::build("jwt_token", token.clone()).finish(),
+                        )
+                        .json(json!({
+                          "success": true,
+                          "data": {
+                            "token": token
+                          }
+                        })),
+
+                    Err(error) => HttpResponse::BadRequest().json(json!({
+                      "success": false,
                       "data": {
-                        "token": token
+                        "message": error
                       }
                     })),
-
-                Err(error) => HttpResponse::BadRequest().json(json!({
-                  "success": false,
-                  "data": {
-                    "message": error
-                  }
-                })),
+                }
+            } else {
+                println!("not verified");
+                HttpResponse::Unauthorized().finish()
             }
         }
         Ok(None) => HttpResponse::NotFound().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
+
+/*&
+#[post("/login")]
+async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
+    if req.username.is_empty() || req.password.is_empty() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let collection = client.database(DB_NAME).collection::<DBAccount>("accounts");
+
+    let filter = doc! { "username": &req.username };
+    match collection.find_one(filter, None).await {
+        Ok(Some(db_acc)) => {
+            let hashed_password = db_acc.password;
+            let salt: [u8; 16] = db_acc.salt.as_bytes().try_into().unwrap();
+            let password = &req.password;
+            let mut check = bcrypt::hash_with_salt(password, 4, salt);
+            let check = check.unwrap();
+            if hashed_password == check.to_string() {
+                println!("verified");
+                let user = User {
+                    username: req.username.clone(),
+                    password: req.password.clone(),
+                };
+                let token = get_jwt(user);
+
+                match token {
+                    Ok(token) => HttpResponse::Ok()
+                        .cookie(
+                            actix_web::cookie::Cookie::build("jwt_token", token.clone()).finish(),
+                        )
+                        .json(json!({
+                          "success": true,
+                          "data": {
+                            "token": token
+                          }
+                        })),
+
+                    Err(error) => HttpResponse::BadRequest().json(json!({
+                      "success": false,
+                      "data": {
+                        "message": error
+                      }
+                    })),
+                }
+            } else {
+                println!("not verified");
+                HttpResponse::Unauthorized().finish()
+            }
+        }
+        Ok(None) => HttpResponse::NotFound().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+*/
 
 #[get("/logout")]
 async fn logout() -> HttpResponse {
