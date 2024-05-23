@@ -1,3 +1,6 @@
+// credit to this amazing man for the auth code: https://www.youtube.com/watch?v=n2M4A4mO0QU&ab_channel=cudidotdev
+// https://github.com/cudidotdev/JWT-Authentication-with-Rust-Axum-and-Actix/blob/main/actix-auth/src/main.rs
+
 mod model;
 use actix_web::{
     delete, error::InternalError, get, http::StatusCode, patch, post, web, web::get, web::post,
@@ -29,7 +32,7 @@ pub struct User {
 
 #[derive(Serialize, Deserialize)]
 struct Claims {
-    email: String,
+    username: String,
     exp: i64,
 }
 
@@ -37,7 +40,7 @@ pub fn get_jwt(user: User) -> Result<String, String> {
     let token = encode(
         &Header::default(),
         &Claims {
-            email: user.username,
+            username: user.username,
             exp: (Utc::now() + Duration::minutes(1000)).timestamp(),
         },
         &EncodingKey::from_secret("mykey".as_bytes()),
@@ -346,6 +349,15 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
     }
 }
 
+#[get("/logout")]
+async fn logout() -> HttpResponse {
+    let mut no_more_cookies =
+        actix_web::cookie::Cookie::build("jwt_token", "no more milk either").finish();
+    no_more_cookies.make_removal();
+
+    HttpResponse::Ok().cookie(no_more_cookies).finish()
+}
+
 #[get("/reviews/{id}/comments")]
 async fn get_comments(id: web::Path<String>, client: web::Data<Client>) -> HttpResponse {
     let id = id.into_inner();
@@ -531,6 +543,7 @@ async fn main() -> std::io::Result<()> {
             .service(delete_comment)
             .service(signup)
             .service(login)
+            .service(logout)
             .app_data(web::Data::new(client.clone()))
     })
     .bind(("localhost", 3002))?
