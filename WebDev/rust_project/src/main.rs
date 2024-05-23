@@ -294,8 +294,8 @@ async fn get_comments(id: web::Path<String>, client: web::Data<Client>) -> HttpR
     HttpResponse::Ok().json(comments)
 }
 
-#[post("/reviews/{bookID}")]
 async fn create_review(
+    Auth(user): Auth,
     path: web::Path<String>,
     info: web::Json<PostReview>,
     mongo_client: web::Data<Client>,
@@ -453,7 +453,7 @@ async fn main() -> std::io::Result<()> {
             .route("/post_review.html", web::get().to(html_post_review))
             .service(get_reviews_by_author)
             .service(get_reviews_by_book)
-            .service(create_review)
+            .route("/reviews/{id}", web::post().to(create_review))
             .service(post_comment)
             .service(get_comments)
             .service(patch_review)
