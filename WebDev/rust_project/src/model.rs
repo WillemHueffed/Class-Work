@@ -19,7 +19,6 @@ pub struct Review {
     pub reviewID: String,
     pub bookID: String,
     pub authorID: String,
-    pub userID: String,
     pub username: String,
 }
 

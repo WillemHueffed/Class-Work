@@ -32,7 +32,7 @@ pub fn get_jwt(user: User) -> Result<String, String> {
     )
     .map_err(|e| e.to_string());
 
-    return token;
+    token
 }
 
 pub fn decode_jwt(token: &str) -> Result<User, String> {
