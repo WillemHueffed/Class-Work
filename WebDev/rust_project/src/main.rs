@@ -36,6 +36,7 @@ pub struct User {
 #[derive(Serialize, Deserialize)]
 struct Claims {
     username: String,
+    password: String,
     exp: i64,
 }
 
@@ -44,6 +45,7 @@ pub fn get_jwt(user: User) -> Result<String, String> {
         &Header::default(),
         &Claims {
             username: user.username,
+            password: user.password,
             exp: (Utc::now() + Duration::minutes(1000)).timestamp(),
         },
         &EncodingKey::from_secret("mykey".as_bytes()),
@@ -122,6 +124,7 @@ struct PatchReview {
 // TODO: Add auth check
 #[patch("/reviews/{id}")]
 async fn patch_review(
+    Auth(user): Auth,
     client: web::Data<Client>,
     info: web::Json<PatchReview>,
     id: web::Path<String>,
@@ -164,6 +167,7 @@ async fn patch_review(
 // TODO: Add auth check
 #[delete["/reviews/{reviewID}/comments/{commentID}"]]
 async fn delete_comment(
+    Auth(user): Auth,
     client: web::Data<Client>,
     path: web::Path<(String, String)>,
 ) -> HttpResponse {
@@ -252,6 +256,7 @@ struct PostComment {
 }
 #[post("/reviews/{id}/comments")]
 async fn post_comment(
+    Auth(_): Auth,
     req: web::Json<PostComment>,
     id: web::Path<String>,
     client: web::Data<Client>,
@@ -293,40 +298,6 @@ struct DBAccount {
     password: String,
 }
 
-/*
-#[post("/signup")]
-async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
-    if req.username.is_empty() || req.password.is_empty() {
-        return HttpResponse::BadRequest().finish();
-    }
-
-    let collection = client.database(DB_NAME).collection::<DBAccount>("accounts");
-
-    let filter = doc! { "username": &req.username };
-    match collection.find_one(filter, None).await {
-        Ok(Some(_)) => HttpResponse::Conflict().finish(),
-        Ok(None) => {
-            let password = req.password.clone();
-            match bcrypt::hash_with_result(&password, 4) {
-                Ok(hash) => {
-                    let user = DBAccount {
-                        username: req.username.clone(),
-                        password: hash.to_string(),
-                        salt: hash.get_salt(),
-                    };
-                    match collection.insert_one(user, None).await {
-                        Ok(_) => HttpResponse::Created().finish(),
-                        Err(_) => HttpResponse::InternalServerError().finish(),
-                    }
-                }
-                Err(_) => HttpResponse::InternalServerError().finish(),
-            }
-        }
-        Err(_) => HttpResponse::InternalServerError().finish(),
-    }
-}
-*/
-
 #[post("/signup")]
 async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
     if req.username.is_empty() || req.password.is_empty() {
@@ -364,7 +335,6 @@ async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespo
                     println!("failed to hash");
                     HttpResponse::InternalServerError().finish()
                 }
-                    
             }
         }
         Err(error) => {
@@ -386,16 +356,18 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
     match collection.find_one(filter, None).await {
         Ok(Some(db_acc)) => {
             let hashed_password = db_acc.password;
-            println!{"hashed password: {:?}", hashed_password};
+            println! {"hashed password: {:?}", hashed_password};
 
             let parsed_hash = match PasswordHash::new(&hashed_password) {
                 Ok(hash) => hash,
                 Err(_) => return HttpResponse::InternalServerError().finish(),
             };
-            println!{"parsed password: {:?}", parsed_hash};
+            println! {"parsed password: {:?}", parsed_hash};
 
-            if Argon2::default().verify_password(req.password.as_bytes(), &parsed_hash).is_ok() {
-
+            if Argon2::default()
+                .verify_password(req.password.as_bytes(), &parsed_hash)
+                .is_ok()
+            {
                 let user = User {
                     username: req.username.clone(),
                     password: req.password.clone(),
@@ -422,7 +394,7 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
                     })),
                 }
             } else {
-                println!{"password verification failed"};
+                println! {"password verification failed"};
                 return HttpResponse::InternalServerError().finish();
             }
         }
@@ -433,61 +405,6 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
         }
     }
 }
-
-/*&
-#[post("/login")]
-async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
-    if req.username.is_empty() || req.password.is_empty() {
-        return HttpResponse::BadRequest().finish();
-    }
-
-    let collection = client.database(DB_NAME).collection::<DBAccount>("accounts");
-
-    let filter = doc! { "username": &req.username };
-    match collection.find_one(filter, None).await {
-        Ok(Some(db_acc)) => {
-            let hashed_password = db_acc.password;
-            let salt: [u8; 16] = db_acc.salt.as_bytes().try_into().unwrap();
-            let password = &req.password;
-            let mut check = bcrypt::hash_with_salt(password, 4, salt);
-            let check = check.unwrap();
-            if hashed_password == check.to_string() {
-                println!("verified");
-                let user = User {
-                    username: req.username.clone(),
-                    password: req.password.clone(),
-                };
-                let token = get_jwt(user);
-
-                match token {
-                    Ok(token) => HttpResponse::Ok()
-                        .cookie(
-                            actix_web::cookie::Cookie::build("jwt_token", token.clone()).finish(),
-                        )
-                        .json(json!({
-                          "success": true,
-                          "data": {
-                            "token": token
-                          }
-                        })),
-
-                    Err(error) => HttpResponse::BadRequest().json(json!({
-                      "success": false,
-                      "data": {
-                        "message": error
-                      }
-                    })),
-                }
-            } else {
-                println!("not verified");
-                HttpResponse::Unauthorized().finish()
-            }
-        }
-        Ok(None) => HttpResponse::NotFound().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
-    }
-}
-*/
 
 #[get("/logout")]
 async fn logout() -> HttpResponse {
