@@ -1,42 +1,96 @@
+use actix_web::{dev::Payload, http::header, FromRequest, HttpRequest};
+use actix_web::{error::InternalError, HttpResponse};
+use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use serde::{Deserialize, Serialize};
-use std::env;
+use serde::Deserialize;
+use serde::Serialize;
+use serde_json::json;
+use std::future::{ready, Ready};
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims {
-    sub: String,
-    exp: usize,
+#[derive(Deserialize, Serialize)]
+pub struct User {
+    pub username: String,
+    pub password: String,
 }
 
-pub fn create_jwt(user_id: &str) -> String {
-    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-    let expiration = chrono::Utc::now()
-        .checked_add_signed(chrono::Duration::seconds(3600))
-        .expect("valid timestamp")
-        .timestamp() as usize;
+#[derive(Serialize, Deserialize)]
+pub struct Claims {
+    pub username: String,
+    pub password: String,
+    pub exp: i64,
+}
 
-    let claims = Claims {
-        sub: user_id.to_owned(),
-        exp: expiration,
-    };
-
-    encode(
+pub fn get_jwt(user: User) -> Result<String, String> {
+    let token = encode(
         &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret.as_ref()),
+        &Claims {
+            username: user.username,
+            password: user.password,
+            exp: (Utc::now() + Duration::minutes(1000)).timestamp(),
+        },
+        &EncodingKey::from_secret("mykey".as_bytes()),
     )
-    .unwrap()
+    .map_err(|e| e.to_string());
+
+    return token;
 }
 
-pub fn validate_jwt(token: &str) -> bool {
-    let secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-
-    match decode::<Claims>(
+pub fn decode_jwt(token: &str) -> Result<User, String> {
+    let token_data = decode::<User>(
         token,
-        &DecodingKey::from_secret(secret.as_ref()),
+        &DecodingKey::from_secret("mykey".as_bytes()),
         &Validation::default(),
-    ) {
-        Ok(_) => true,
-        Err(_) => false,
+    );
+
+    match token_data {
+        Ok(token_data) => Ok(token_data.claims),
+
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+pub struct Auth(pub User);
+
+impl FromRequest for Auth {
+    type Error = InternalError<String>;
+
+    type Future = Ready<Result<Self, Self::Error>>;
+
+    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
+        let access_token = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|str| str.split(" ").nth(1));
+
+        match access_token {
+            Some(token) => {
+                let user = decode_jwt(token);
+
+                match user {
+                    Ok(user) => ready(Ok(Auth(user))),
+
+                    Err(e) => ready(Err(InternalError::from_response(
+                        e.clone(),
+                        HttpResponse::Unauthorized().json(json!({
+                          "success": false,
+                          "data": {
+                            "message": e
+                          }
+                        })),
+                    ))),
+                }
+            }
+
+            None => ready(Err(InternalError::from_response(
+                String::from("No token provided"),
+                HttpResponse::Unauthorized().json(json!({
+                  "success": false,
+                  "data": {
+                    "message": "No token provided"
+                  }
+                })),
+            ))),
+        }
     }
 }

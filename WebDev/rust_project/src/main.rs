@@ -1,19 +1,18 @@
 // credit to this amazing man for the auth code: https://www.youtube.com/watch?v=n2M4A4mO0QU&ab_channel=cudidotdev
 // https://github.com/cudidotdev/JWT-Authentication-with-Rust-Axum-and-Actix/blob/main/actix-auth/src/main.rs
 
+mod jwt;
 mod model;
+use actix_web::web::Json;
 use actix_web::{
-    delete, error::InternalError, get, http::StatusCode, patch, post, web, web::get, web::post,
-    App, HttpResponse, HttpServer,
+    delete, get, http::StatusCode, patch, post, web, web::get, web::post, App, HttpResponse,
+    HttpServer,
 };
-use actix_web::{dev::Payload, http::header, web::Json, FromRequest, HttpRequest};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use chrono::{Duration, Utc};
 use futures::stream::StreamExt;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use model::{Book, PostReview, Review};
 use mongodb::{
     bson::{doc, Bson},
@@ -22,98 +21,10 @@ use mongodb::{
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
-use std::future::{ready, Ready};
 use uuid::Uuid;
+
 const DB_NAME: &str = "WebDev";
 const COLL_NAME: &str = "reviews";
-
-#[derive(Deserialize, Serialize)]
-pub struct User {
-    username: String,
-    password: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Claims {
-    username: String,
-    password: String,
-    exp: i64,
-}
-
-pub fn get_jwt(user: User) -> Result<String, String> {
-    let token = encode(
-        &Header::default(),
-        &Claims {
-            username: user.username,
-            password: user.password,
-            exp: (Utc::now() + Duration::minutes(1000)).timestamp(),
-        },
-        &EncodingKey::from_secret("mykey".as_bytes()),
-    )
-    .map_err(|e| e.to_string());
-
-    return token;
-}
-
-pub fn decode_jwt(token: &str) -> Result<User, String> {
-    let token_data = decode::<User>(
-        token,
-        &DecodingKey::from_secret("mykey".as_bytes()),
-        &Validation::default(),
-    );
-
-    match token_data {
-        Ok(token_data) => Ok(token_data.claims),
-
-        Err(e) => Err(e.to_string()),
-    }
-}
-
-struct Auth(User);
-
-impl FromRequest for Auth {
-    type Error = InternalError<String>;
-
-    type Future = Ready<Result<Self, Self::Error>>;
-
-    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let access_token = req
-            .headers()
-            .get(header::AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|str| str.split(" ").nth(1));
-
-        match access_token {
-            Some(token) => {
-                let user = decode_jwt(token);
-
-                match user {
-                    Ok(user) => ready(Ok(Auth(user))),
-
-                    Err(e) => ready(Err(InternalError::from_response(
-                        e.clone(),
-                        HttpResponse::Unauthorized().json(json!({
-                          "success": false,
-                          "data": {
-                            "message": e
-                          }
-                        })),
-                    ))),
-                }
-            }
-
-            None => ready(Err(InternalError::from_response(
-                String::from("No token provided"),
-                HttpResponse::Unauthorized().json(json!({
-                  "success": false,
-                  "data": {
-                    "message": "No token provided"
-                  }
-                })),
-            ))),
-        }
-    }
-}
 
 #[derive(Deserialize)]
 struct PatchReview {
@@ -124,7 +35,7 @@ struct PatchReview {
 // TODO: Add auth check
 #[patch("/reviews/{id}")]
 async fn patch_review(
-    Auth(user): Auth,
+    jwt::Auth(user): jwt::Auth,
     client: web::Data<Client>,
     info: web::Json<PatchReview>,
     id: web::Path<String>,
@@ -167,7 +78,7 @@ async fn patch_review(
 // TODO: Add auth check
 #[delete["/reviews/{reviewID}/comments/{commentID}"]]
 async fn delete_comment(
-    Auth(user): Auth,
+    jwt::Auth(_user): jwt::Auth,
     client: web::Data<Client>,
     path: web::Path<(String, String)>,
 ) -> HttpResponse {
@@ -180,14 +91,14 @@ async fn delete_comment(
     match collection.update_one(filter, update_doc, None).await {
         Ok(result) => {
             if result.matched_count > 0 {
-                return HttpResponse::Ok().finish();
+                HttpResponse::Ok().finish()
             } else {
-                return HttpResponse::NotFound().finish();
+                HttpResponse::NotFound().finish()
             }
         }
         Err(err) => {
             println!("DB error: {:?}", err);
-            return HttpResponse::InternalServerError().finish();
+            HttpResponse::InternalServerError().finish()
         }
     }
 }
@@ -256,7 +167,7 @@ struct PostComment {
 }
 #[post("/reviews/{id}/comments")]
 async fn post_comment(
-    Auth(_): Auth,
+    jwt::Auth(_): jwt::Auth,
     req: web::Json<PostComment>,
     id: web::Path<String>,
     client: web::Data<Client>,
@@ -277,9 +188,9 @@ async fn post_comment(
     {
         Ok(result) => {
             if result.matched_count > 0 {
-                return HttpResponse::Ok().finish();
+                HttpResponse::Ok().finish()
             } else {
-                return HttpResponse::NotFound().json(json! ({ "error": "review not found"}));
+                HttpResponse::NotFound().json(json! ({ "error": "review not found"}))
             }
         }
         Err(_e) => HttpResponse::InternalServerError().finish(),
@@ -368,11 +279,11 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
                 .verify_password(req.password.as_bytes(), &parsed_hash)
                 .is_ok()
             {
-                let user = User {
+                let user = jwt::User {
                     username: req.username.clone(),
                     password: req.password.clone(),
                 };
-                let token = get_jwt(user);
+                let token = jwt::get_jwt(user);
 
                 match token {
                     Ok(token) => HttpResponse::Ok()
@@ -435,7 +346,7 @@ async fn get_comments(id: web::Path<String>, client: web::Data<Client>) -> HttpR
 }
 
 async fn create_review(
-    Auth(user): Auth,
+    jwt::Auth(user): jwt::Auth,
     path: web::Path<String>,
     info: web::Json<PostReview>,
     mongo_client: web::Data<Client>,
@@ -531,8 +442,8 @@ async fn html_post_review() -> HttpResponse {
         .body(include_str!("static/post_review.html"))
 }
 
-async fn get_token_handler(Json(user): Json<User>) -> HttpResponse {
-    let token = get_jwt(user);
+async fn get_token_handler(Json(user): Json<jwt::User>) -> HttpResponse {
+    let token = jwt::get_jwt(user);
 
     match token {
         Ok(token) => HttpResponse::Ok()
@@ -553,7 +464,7 @@ async fn get_token_handler(Json(user): Json<User>) -> HttpResponse {
     }
 }
 
-async fn secret_view_handler(Auth(user): Auth) -> HttpResponse {
+async fn secret_view_handler(jwt::Auth(user): jwt::Auth) -> HttpResponse {
     HttpResponse::Ok().json(json!({
       "success": true,
       "data": user
