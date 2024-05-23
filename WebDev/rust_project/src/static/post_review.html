@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -18,20 +18,33 @@
     <div id="responseDisplay"></div>
 
     <script>
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+      }
+
       async function submitReview() {
         try {
           const bookId = document.getElementById("bookIdInput").value;
           const rating = document.getElementById("ratingInput").value;
-          const description = document.getElementById("descriptionInput").value;
+          const desc = document.getElementById("descriptionInput").value;
+          const jwtToken = getCookie('jwt_token'); // Retrieve the JWT token from cookies
+
+          if (!jwtToken) {
+            alert('No JWT token found in cookies');
+            return;
+          }
 
           const response = await fetch(
             `http://localhost:3002/reviews/${bookId}`,
             {
               method: "POST",
               headers: {
-                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${jwtToken}`, // Include the JWT token in the header
               },
-              body: `rating=${rating}&description=${encodeURIComponent(description)}`,
+              body: JSON.stringify({ rating, desc})
             },
           );
 
