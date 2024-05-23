@@ -284,24 +284,38 @@ struct Account {
     password: String,
 }
 
+#[derive(Deserialize, Serialize)]
+struct DBAccount {
+    username: String,
+    salt: String,
+    password: String,
+}
+
 #[post("/signup")]
 async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
     if req.username.is_empty() || req.password.is_empty() {
         return HttpResponse::BadRequest().finish();
     }
 
-    let collection = client.database(DB_NAME).collection::<Account>("accounts");
+    let collection = client.database(DB_NAME).collection::<DBAccount>("accounts");
 
     let filter = doc! { "username": &req.username };
     match collection.find_one(filter, None).await {
         Ok(Some(_)) => HttpResponse::Conflict().finish(),
         Ok(None) => {
-            let user = Account {
-                username: req.username.clone(),
-                password: req.password.clone(),
-            };
-            match collection.insert_one(user, None).await {
-                Ok(_) => HttpResponse::Created().finish(),
+            let password = req.password.clone();
+            match bcrypt::hash_with_result(&password, 4) {
+                Ok(hash) => {
+                    let user = DBAccount {
+                        username: req.username.clone(),
+                        password: hash.to_string(),
+                        salt: hash.get_salt(),
+                    };
+                    match collection.insert_one(user, None).await {
+                        Ok(_) => HttpResponse::Created().finish(),
+                        Err(_) => HttpResponse::InternalServerError().finish(),
+                    }
+                }
                 Err(_) => HttpResponse::InternalServerError().finish(),
             }
         }
