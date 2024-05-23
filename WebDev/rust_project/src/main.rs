@@ -23,7 +23,8 @@ const COLL_NAME: &str = "reviews";
 
 #[derive(Deserialize, Serialize)]
 pub struct User {
-    email: String,
+    username: String,
+    password: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,7 +37,7 @@ pub fn get_jwt(user: User) -> Result<String, String> {
     let token = encode(
         &Header::default(),
         &Claims {
-            email: user.email,
+            email: user.username,
             exp: (Utc::now() + Duration::minutes(1000)).timestamp(),
         },
         &EncodingKey::from_secret("mykey".as_bytes()),
@@ -305,6 +306,46 @@ async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespo
     }
 }
 
+#[post("/login")]
+async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
+    if req.username.is_empty() || req.password.is_empty() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let collection = client.database(DB_NAME).collection::<Account>("accounts");
+
+    let filter = doc! { "username": &req.username, "password": &req.password };
+    match collection.find_one(filter, None).await {
+        Ok(Some(_)) => {
+            let user = User {
+                username: req.username.clone(),
+                password: req.password.clone(),
+            };
+            let token = get_jwt(user);
+
+            match token {
+                Ok(token) => HttpResponse::Ok()
+                    .cookie(actix_web::cookie::Cookie::build("jwt_token", token.clone()).finish())
+                    .json(json!({
+                      "success": true,
+                      "data": {
+                        "token": token
+                      }
+                    })),
+
+                Err(error) => HttpResponse::BadRequest().json(json!({
+                  "success": false,
+                  "data": {
+                    "message": error
+                  }
+                })),
+            }
+        }
+        Ok(None) => HttpResponse::NotFound().finish(),
+        Err(_) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
 #[get("/reviews/{id}/comments")]
 async fn get_comments(id: web::Path<String>, client: web::Data<Client>) -> HttpResponse {
     let id = id.into_inner();
@@ -489,6 +530,7 @@ async fn main() -> std::io::Result<()> {
             .service(patch_review)
             .service(delete_comment)
             .service(signup)
+            .service(login)
             .app_data(web::Data::new(client.clone()))
     })
     .bind(("localhost", 3002))?
