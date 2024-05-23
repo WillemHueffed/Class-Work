@@ -290,7 +290,6 @@ struct Account {
 #[derive(Deserialize, Serialize)]
 struct DBAccount {
     username: String,
-    salt: String,
     password: String,
 }
 
@@ -348,22 +347,30 @@ async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespo
             // Hash password to PHC string ($argon2id$v=19$...)
             match argon2.hash_password(password.as_bytes(), &salt) {
                 Ok(hash_result) => {
-                    let hashed_password = hash_result.hash.unwrap();
                     let user = DBAccount {
                         username: req.username.clone(),
-                        password: hashed_password.to_string(),
-                        salt: salt.to_string(),
+                        password: hash_result.to_string(),
                     };
 
                     match collection.insert_one(user, None).await {
                         Ok(_) => HttpResponse::Created().finish(),
-                        Err(_) => HttpResponse::InternalServerError().finish(),
+                        Err(_) => {
+                            println!("failed to insert");
+                            HttpResponse::InternalServerError().finish()
+                        }
                     }
                 }
-                Err(_) => HttpResponse::InternalServerError().finish(),
+                Err(_) => {
+                    println!("failed to hash");
+                    HttpResponse::InternalServerError().finish()
+                }
+                    
             }
         }
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Err(error) => {
+            println!("{:?}", error);
+            HttpResponse::InternalServerError().finish()
+        }
     }
 }
 
@@ -379,10 +386,20 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
     match collection.find_one(filter, None).await {
         Ok(Some(db_acc)) => {
             let hashed_password = db_acc.password;
-            let salt_slice = db_acc.salt.as_bytes();
 
-            let salt: [u8; 16] = salt_slice.try_into().expect("slice with incorrect length");
+            let parsed_hash = match PasswordHash::new(&hashed_password) {
+                Ok(hash) => hash,
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
 
+            println!("{:?}", hashed_password);
+            if Argon2::default().verify_password(hashed_password.as_bytes(), &parsed_hash).is_ok() {
+                return HttpResponse::PermanentRedirect().finish();
+            } else {
+                return HttpResponse::InternalServerError().finish();
+            }
+
+            /*
             // Borrow the password field instead of moving it
             let password = &req.password;
             let check = bcrypt::hash_with_salt(password, 4, salt);
@@ -418,6 +435,7 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
                 println!("not verified");
                 HttpResponse::Unauthorized().finish()
             }
+            */
         }
         Ok(None) => HttpResponse::NotFound().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
