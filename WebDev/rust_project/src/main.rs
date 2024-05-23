@@ -422,16 +422,9 @@ async fn login(req: web::Json<Account>, client: web::Data<Client>) -> HttpRespon
                     })),
                 }
             } else {
-                println!("not verified");
-                HttpResponse::Unauthorized().finish()
-            }
-            } else {
                 println!{"password verification failed"};
                 return HttpResponse::InternalServerError().finish();
             }
-
-            /*
-            */
         }
         Ok(None) => HttpResponse::NotFound().finish(),
         Err(_) => {
