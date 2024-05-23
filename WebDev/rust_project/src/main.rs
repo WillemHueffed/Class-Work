@@ -243,7 +243,6 @@ async fn get_reviews_by_book(client: web::Data<Client>, id: web::Path<String>) -
 struct PostComment {
     comment: String,
 }
-//#[post("/reviews/{id}/comments")]
 #[post("/reviews/{id}/comments")]
 async fn post_comment(
     req: web::Json<PostComment>,
@@ -272,6 +271,37 @@ async fn post_comment(
             }
         }
         Err(_e) => HttpResponse::InternalServerError().finish(),
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+struct Account {
+    username: String,
+    password: String,
+}
+
+#[post("/signup")]
+async fn signup(req: web::Json<Account>, client: web::Data<Client>) -> HttpResponse {
+    if req.username.is_empty() || req.password.is_empty() {
+        return HttpResponse::BadRequest().finish();
+    }
+
+    let collection = client.database(DB_NAME).collection::<Account>("accounts");
+
+    let filter = doc! { "username": &req.username };
+    match collection.find_one(filter, None).await {
+        Ok(Some(_)) => HttpResponse::Conflict().finish(),
+        Ok(None) => {
+            let user = Account {
+                username: req.username.clone(),
+                password: req.password.clone(),
+            };
+            match collection.insert_one(user, None).await {
+                Ok(_) => HttpResponse::Created().finish(),
+                Err(_) => HttpResponse::InternalServerError().finish(),
+            }
+        }
+        Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
@@ -458,6 +488,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_comments)
             .service(patch_review)
             .service(delete_comment)
+            .service(signup)
             .app_data(web::Data::new(client.clone()))
     })
     .bind(("localhost", 3002))?
