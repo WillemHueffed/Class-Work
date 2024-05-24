@@ -7,3 +7,5 @@ hardcoded values though.
 
 Note: This endpoint is dependent on hw1 to be functional. I'll try and remember to resubmit that project with this one. If not please use the version of hw1 I submitted in the 
 original homework two.
+
+Note2: To connect to your own DB just change the value of MONGOURI in the .env file

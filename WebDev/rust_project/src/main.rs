@@ -5,12 +5,17 @@ mod jwt;
 mod model;
 mod review;
 use actix_web::{web, web::get, web::post, App, HttpServer};
+use dotenv::dotenv;
 use mongodb::Client;
+use std::env;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Parse a connection string into an options struct.
-    let uri = "mongodb+srv://whueffed:whueffed@webdev.nque75t.mongodb.net/?retryWrites=true&w=majority&appName=WebDev";
+    dotenv().ok();
+    let uri = match env::var("MONGOURI") {
+        Ok(v) => v.to_string(),
+        Err(_) => format!("Error loading env variable"),
+    };
     let client = Client::with_uri_str(uri)
         .await
         .expect("failed to connected");
