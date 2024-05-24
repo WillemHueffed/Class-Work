@@ -1,0 +1,9 @@
+To run the server use the ./run.sh executable. You may have to run cargo init or something to download the requisite dependencies. This is my first real rust project so I'm not
+super sure. running `cargo build` and then `cargo run` should also do the trick
+
+To test:
+I have static html pages working for all endpoints except patching review. However there is a shell script `patch_review.sh` that works as intended. You will have to modify the
+hardcoded values though.
+
+Note: This endpoint is dependent on hw1 to be functional. I'll try and remember to resubmit that project with this one. If not please use the version of hw1 I submitted in the 
+original homework two.
