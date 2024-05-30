@@ -77,7 +77,10 @@ export default async function Home() {
                               <img src={determine_photo_uri(plant.species, plant.cultivar)} className="circle-image" />
                               <div>
                                 <span className={styles.plantinfo}>
-                                    <Link href="plant_details">{plant.name}</Link>
+                                    <Link href={{pathname: "plant_details", query: {name: plant.name, species: plant.species,
+                                      cultivar: plant.cultivar, stage: plant.stage,
+                                      jpg: determine_photo_uri(plant.species, plant.cultivar)}}}>{plant.name}
+                                    </Link>
                                   </span> <br/>
                                 <div>
                                   Species: {plant.species} <br/>
