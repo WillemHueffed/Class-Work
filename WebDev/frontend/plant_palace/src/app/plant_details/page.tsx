@@ -1,31 +1,47 @@
-"use client"
-import { useSearchParams} from 'next/navigation'
-import Link from 'next/link';
+"use client";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import styles from "./page.module.css";
 
-interface Harvest{
+interface Harvest {
   date: string;
   amount: string;
 }
 
-async function getHarvestData(uri: string): Promise<Harvest[]> {
-    const res = await fetch(uri);
-    if (!res.ok) {
-        throw new Error('Failed to fetch data');
-    }
-    return res.json();
+async function getHarvestData(id: string): Promise<Harvest[]> {
+  const uri = `https://cpsc4910sq24.s3.amazonaws.com/data/plants/${id}/harvests.json`;
+  const res = await fetch(uri);
+  if (!res.ok) {
+    throw new Error("Failed to fetch data");
+  }
+  return res.json();
 }
 
-function PlantDetailsComponent({ params }: {params: {name: string, species: string, cultivar: string, stage: string, jpg: string }}) {
+async function PlantDetailsComponent({
+  params,
+}: {
+  params: {
+    name: string;
+    species: string;
+    cultivar: string;
+    stage: string;
+    jpg: string;
+  };
+}) {
   const search_params = useSearchParams();
   const name = search_params.get("name");
   const species = search_params.get("species");
   const cultivar = search_params.get("cultivar");
   const stage = search_params.get("stage");
   const jpg = search_params.get("jpg");
+  const id = search_params.get("id");
+  if (!id) {
+    throw Error;
+  }
+  const harvest_data = await getHarvestData(id);
 
-  if (!jpg){
-    throw Error
+  if (!jpg) {
+    throw Error;
   }
 
   return (
@@ -33,9 +49,9 @@ function PlantDetailsComponent({ params }: {params: {name: string, species: stri
       <h1>{name}</h1>
       <div>
         <div>
-          <img src={jpg} className="details-image"/>
-          <br/>
-          Species: {species} <br/>
+          <img src={jpg} className="details-image" />
+          <br />
+          Species: {species} <br />
           Stage: {stage}
         </div>
         <table>
@@ -44,6 +60,12 @@ function PlantDetailsComponent({ params }: {params: {name: string, species: stri
               <th>Date</th>
               <th>Amount</th>
             </tr>
+            {harvest_data.map((item: Harvest, index: number) => (
+              <tr key={index}>
+                <td>{item.date}</td>
+                <td>{item.amount}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

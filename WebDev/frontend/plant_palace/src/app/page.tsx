@@ -79,7 +79,9 @@ export default async function Home() {
                                 <span className={styles.plantinfo}>
                                     <Link href={{pathname: "plant_details", query: {name: plant.name, species: plant.species,
                                       cultivar: plant.cultivar, stage: plant.stage,
-                                      jpg: determine_photo_uri(plant.species, plant.cultivar)}}}>{plant.name}
+                                      jpg: determine_photo_uri(plant.species, plant.cultivar),
+                                      id: plant.id}}}>
+                                      {plant.name}
                                     </Link>
                                   </span> <br/>
                                 <div>
