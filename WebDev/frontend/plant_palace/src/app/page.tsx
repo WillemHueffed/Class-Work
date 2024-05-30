@@ -1,4 +1,5 @@
 import styles from "./page.module.css";
+import Link from "next/link";
 
 const plants_uri = "https://cpsc4910sq24.s3.amazonaws.com/data/plants.json";
 const jpgs_uri = "https://cpsc4910sq24.s3.amazonaws.com/images/";
@@ -76,7 +77,7 @@ export default async function Home() {
                               <img src={determine_photo_uri(plant.species, plant.cultivar)} className="circle-image" />
                               <div>
                                 <span className={styles.plantinfo}>
-                                    <a href="wikipedia.com">{plant.name}</a>
+                                    <Link href="plant_details">{plant.name}</Link>
                                   </span> <br/>
                                 <div>
                                   Species: {plant.species} <br/>
@@ -97,4 +98,5 @@ export default async function Home() {
         </main>
     );
 }
+
 
