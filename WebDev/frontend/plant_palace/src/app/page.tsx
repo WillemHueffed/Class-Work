@@ -1,7 +1,7 @@
 "use client";
 import styles from "./page.module.css";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const plants_uri = "https://cpsc4910sq24.s3.amazonaws.com/data/plants.json";
@@ -28,51 +28,71 @@ function sortByLocation(data: Plant[]): { [key: string]: Plant[] } {
   return locationMap;
 }
 
-function determine_photo_uri(species: string, cultivar?: string): String {
-  if (species == "Arugula") {
+function determine_photo_uri(species: string, cultivar?: string): string {
+  if (species === "Arugula") {
     return jpgs_uri + "arugula.jpg";
-  } else if (species == "Bell pepper") {
+  } else if (species === "Bell pepper") {
     return jpgs_uri + "bell-pepper.jpg";
-  } else if (species == "Lettuce") {
+  } else if (species === "Lettuce") {
     if (!cultivar) {
       return "";
-    } else if (cultivar == "Butter") {
+    } else if (cultivar === "Butter") {
       return jpgs_uri + "butter-lettuce.jpg";
-    } else if (cultivar == "Green leaf") {
+    } else if (cultivar === "Green leaf") {
       return jpgs_uri + "green-leaf-lettuce.jpg";
     }
     return "";
-  } else if (species == "Strawberry") {
+  } else if (species === "Strawberry") {
     return jpgs_uri + "strawberry.jpg";
   }
   return "";
 }
 
 export default function Home() {
-  const [data, setData] = useState(null);
+  const router = useRouter();
+  const [data, setData] = useState<Plant[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const getPlantData = async () => {
-      const res = await fetch(plants_uri);
-      if (!res.ok) {
-        throw new Error("Failed to fetch data");
+      try {
+        const res = await fetch(plants_uri);
+        if (!res.ok) {
+          throw new Error("Failed to fetch data");
+        }
+        const result = await res.json();
+        setData(result);
+        setLoading(false);
+      } catch (error: any) {
+        setError(error.message);
+        setLoading(false);
       }
-      const result = await res.json();
-      setData(result);
-      setLoading(false);
     };
 
     getPlantData();
   }, []);
 
-  if (data) {
-    const sortedData = sortByLocation(data);
-  } else {
-    throw Error;
+  const handleClick = (
+    event: React.MouseEvent<HTMLAnchorElement, MouseEvent>,
+  ) => {
+    event.preventDefault();
+    router.push(event.currentTarget.href);
+  };
+
+  if (loading) {
+    return <main>Loading...</main>;
   }
-  const router = useRouter();
+
+  if (error) {
+    return <main>Error: {error}</main>;
+  }
+
+  if (!data) {
+    return <main>No data available</main>;
+  }
+
+  const sortedData = sortByLocation(data);
 
   return (
     <main>
@@ -82,18 +102,22 @@ export default function Home() {
           <summary>{location}</summary>
           <ul className="plant-list">
             {sortedData[location].map((plant) => (
-              <div className="plant-entry">
-                <li key={plant.id} className="plant_li">
+              <div className="plant-entry" key={plant.id}>
+                <li className="plant_li">
                   <img
                     src={determine_photo_uri(plant.species, plant.cultivar)}
                     className="circle-image"
+                    alt={plant.name}
                   />
                   <div>
                     <span className={styles.plantinfo}>
-                      <a href={"plant_details/1"} onClick={handleClick}>
+                      <a
+                        href={"plant_details/" + plant.id}
+                        onClick={handleClick}
+                      >
                         {plant.name}
                       </a>
-                    </span>{" "}
+                    </span>
                     <br />
                     <div>
                       Species: {plant.species} <br />

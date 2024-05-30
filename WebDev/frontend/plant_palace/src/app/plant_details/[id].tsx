@@ -17,17 +17,13 @@ async function getHarvestData(id: string): Promise<Harvest[]> {
   return res.json();
 }
 
-async function PlantDetailsComponent({
-  params,
-}: {
+interface PageParams {
   params: {
-    name: string;
-    species: string;
-    cultivar: string;
-    stage: string;
-    jpg: string;
+    id: string;
   };
-}) {
+}
+
+function PlantDetailsComponent({ params }: PageParams) {
   const search_params = useSearchParams();
   const name = search_params.get("name");
   const species = search_params.get("species");
@@ -35,42 +31,38 @@ async function PlantDetailsComponent({
   const stage = search_params.get("stage");
   const jpg = search_params.get("jpg");
   const id = search_params.get("id");
-  if (!id) {
-    throw Error;
-  }
-  const harvest_data = await getHarvestData(id);
+  return <> hello world </>;
+  //const harvest_data = await getHarvestData(id);
 
-  if (!jpg) {
-    throw Error;
-  }
-
-  return (
-    <>
-      <h1>{name}</h1>
-      <div>
+  /*
+    return (
+      <>
+        <h1>{name}</h1>
         <div>
-          <img src={jpg} className="details-image" />
-          <br />
-          Species: {species} <br />
-          Stage: {stage}
-        </div>
-        <table>
-          <tbody>
-            <tr>
-              <th>Date</th>
-              <th>Amount</th>
-            </tr>
-            {harvest_data.map((item: Harvest, index: number) => (
-              <tr key={index}>
-                <td>{item.date}</td>
-                <td>{item.amount}</td>
+          <div>
+            <img src={jpg} className="details-image" />
+            <br />
+            Species: {species} <br />
+            Stage: {stage}
+          </div>
+          <table>
+            <tbody>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
+              {harvest_data.map((item: Harvest, index: number) => (
+                <tr key={index}>
+                  <td>{item.date}</td>
+                  <td>{item.amount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+    */
 }
 
 export default PlantDetailsComponent;
