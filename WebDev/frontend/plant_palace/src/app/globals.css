@@ -1,13 +1,84 @@
 :root {
-  .details-image{
+  .container {
+    display: flex;
+    align-items: flex-start;
+  }
+  .harvest-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    width: auto;
+  }
+  .harvest-table,
+  .harvest-table th,
+  .harvest-table td {
+    border: 1px solid #0031a3;
+  }
+
+  .harvest-table th,
+  .harvest-table td {
+    padding: 8px;
+    text-align: center;
+  }
+  .details-image {
     width: 256px;
     height: 256px;
   }
+
+  .border {
+    width: 10px;
+    height: 256px;
+    background-color: #0031a3;
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  @media (max-width: 599px) {
+    .container {
+      display: block;
+    }
+    .border {
+      width: 0px;
+      height: 0px;
+      margin: 0px, 0px, 0px, 0px;
+    }
+    .details-image {
+      max-width: 100%;
+    }
+    .image-container {
+      margin-bottom: 20px;
+    }
+    .harvest-table {
+      max-width: 100%;
+    }
+  }
+  tr:nth-child(even) {
+    background-color: #d2d1d1;
+  }
+
+  tr:nth-child(odd) {
+    background-color: #ffffff;
+  }
+
+  body {
+    color: #0031a3;
+    font-family: "Comic Sans MS", cursive;
+  }
+
   .circle-image {
     border-radius: 50%;
     width: 128px;
     height: 128px;
     margin-right: 1rem;
+  }
+
+  .table-title {
+    font-size: 1.5em;
+    font-weight: bold;
+  }
+
+  .main-div {
+    text-align: center;
   }
 
   .plantinfo {
@@ -19,6 +90,7 @@
     list-style-type: none;
     align-items: center;
     border: 2px solid black;
+    border-color: #0031a3;
     border-radius: 10px;
     padding: 1rem;
     display: flex;
@@ -37,7 +109,4 @@
     display: flex;
     max-width: 500px;
   }
-
-
 }
-

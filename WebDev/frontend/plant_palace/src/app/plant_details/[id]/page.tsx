@@ -5,17 +5,8 @@ import styles from "./page.module.css";
 import { useState, useEffect } from "react";
 
 interface Harvest {
-  date: string;
-  amount: string;
-}
-
-async function getHarvestData(id: string): Promise<Harvest[]> {
-  const uri = `https://cpsc4910sq24.s3.amazonaws.com/data/plants/${id}/harvests.json`;
-  const res = await fetch(uri);
-  if (!res.ok) {
-    throw new Error("Failed to fetch data");
-  }
-  return res.json();
+  Date: string;
+  Amount: string;
 }
 
 interface PageParams {
@@ -58,7 +49,7 @@ function determine_photo_uri(species: string, cultivar?: string): string {
 function PlantDetailsComponent({ params }: PageParams) {
   const id = params.id;
 
-  const router = useRouter();
+  //const router = useRouter();
   const [plantData, setPlantData] = useState<Plant | null>(null);
   const [plantHarvests, setPlantHarvests] = useState<Harvest[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,10 +84,18 @@ function PlantDetailsComponent({ params }: PageParams) {
     };
 
     getPlantData();
-  }, []);
+  });
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   if (!plantData || !plantHarvests) {
     return <>Error loading data</>;
+  }
+
+  if (error) {
+    return <div>Error loading data: {error}</div>;
   }
 
   const species = plantData.species;
@@ -109,31 +108,38 @@ function PlantDetailsComponent({ params }: PageParams) {
 
   return (
     <>
-      <h1>{plantData.name}</h1>
-      <div>
-        <div>
-          <img
-            src={determine_photo_uri(species, cultivar)}
-            className="details-image"
-          />
-          <br />
-          Species: {species} <br />
-          Stage: {stage}
+      <div className="main-div">
+        <h1>{name}</h1>
+        <div className="container">
+          <div className="image-container">
+            <img
+              src={determine_photo_uri(species, cultivar)}
+              className="details-image"
+              alt="a photo of the plant"
+            />
+            <br />
+            Species: {species} <br />
+            Stage: {stage}
+          </div>
+          <div className="border"></div>
+          <div className="table-container">
+            <span className="table-title">Past Harvests</span>
+            <table className="harvest-table">
+              <tbody>
+                <tr>
+                  <th>Date</th>
+                  <th>Amount</th>
+                </tr>
+                {plantHarvests.map((item: Harvest, index: number) => (
+                  <tr key={index}>
+                    <td>{item.Date}</td>
+                    <td>{item.Amount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <table>
-          <tbody>
-            <tr>
-              <th>Date</th>
-              <th>Amount</th>
-            </tr>
-            {plantHarvests.map((item: Harvest, index: number) => (
-              <tr key={index}>
-                <td>{item.date}</td>
-                <td>{item.amount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </>
   );
