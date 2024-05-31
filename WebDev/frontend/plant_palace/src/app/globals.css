@@ -82,14 +82,14 @@
   }
 
   .plantinfo {
-    border: 2px solid black;
+    border: 2px solid #0031a3;
     text-align: right;
   }
 
   .plant-entry {
     list-style-type: none;
     align-items: center;
-    border: 2px solid black;
+    border: 2px solid #0031a3;
     border-color: #0031a3;
     border-radius: 10px;
     padding: 1rem;
