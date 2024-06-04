@@ -1,0 +1,156 @@
+html body .error {
+    color: #F40;
+    background-color: lightgray;
+    font-weight: bold;
+    font-family: Calibri, sans-serif;
+    font-size: 400%;
+    letter-spacing: 2px;
+}
+
+.stop-search-results-list {
+    height: 100vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+
+    border: 1px solid white;
+    border-radius: 8px;
+    padding: 0 12px 0 12px;
+
+    & ul {
+        list-style: none;
+        padding-inline-start: 0;
+    }
+
+    & > ul > li {
+      position: relative;
+
+      &:not(:last-child) {
+        padding-bottom: 8px;
+        border-bottom: 3px dashed white;
+        margin-bottom: 24px;
+      }
+    }
+
+    & h2 {
+      margin: 0;
+    }
+}
+/*
+.load-arrivals-button {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+}*/
+
+.stop-details-top-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+
+  & > button {
+    flex-grow: 1;
+    flex-shrink: 1;
+  }
+
+  & > h2 {
+    flex-grow: 2;
+    flex-shrink: 0;
+  }
+}
+
+.overlay {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  top: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, .8);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+
+  & > div {
+    background-color: #EEE;
+    color: black;
+    border-radius: 16px;
+    width: 50%;
+    height: 25%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+@media (max-width: 1280px) {
+  .large-nav {
+    display: none;
+  }
+}
+
+@media (min-width: 1281px) {
+  .small-nav {
+    display: none;
+  }
+}
+
+/*
+ spacing can use:
+ - px for pixels (most common, esp. for text)
+ - cm for real world measurements
+ - % to be proportional to specific ancestor components
+ - vw or vh for % of the viewport's width or height
+*/
+
+/*
+Selector types:
+
+- # means id    #navigation-drawer
+- . means class  .error
+- no symbol means tag name div
+- : means pseudo-class button:active, li:first-child
+- :: means pseudo-element, "imaginary" elements that go around real ones
+
+Specificity (x, y, z)
+x = number of ids
+y = number of classes and pseudo-classes
+z = tag names and pseudo-elements
+
+sorting breakers - these things make the browser ignore specificity
+- an attribute with !important
+- inline style <div style=".... or myElement.style.blah =
+*/
+
+/*
+Combinator types:
+
+- , means OR - each thing separated by a comma is an independent selector
+-   (space) means ancestor-descendant - left of space is ancestor, right is descendant
+- > means direct parent
+- no separator means AND - applies to same element
+
+- + means a later sibling
+- ~ means next sibling
+*/
+
+/* selects <div class="a b c"> if it's not the last child of its parent
+div.a.b.c:not(:last-child) {
+
+}*/
+
+/*
+ only selects li _directly_ inside a ul, not great-grandchildren
+
+ <ul>
+    <li> <- this one
+      <ol>
+        <li> <- not this one
+      </ol>
+    </li>
+    <li> <- this one
+      <ul>
+        <li> <- this one
+*/
